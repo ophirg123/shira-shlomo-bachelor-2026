@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🎊 רווקים/רווקות - שירה ושלמה 2026</title>
+  <meta property="og:title" content="🎊 רווקים/רווקות שירה ושלמה">
+  <meta property="og:description" content="חוף אמנון, כנרת | 5-6.6.2026 | כל המידע, המשימות והקניות">
+  <meta property="og:type" content="website">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <style>
+    /* ============================================
+       DESIGN SYSTEM - "Kinneret Golden Hour"
+       ============================================ */
+    :root {
+      --primary: #1A535C;
+      --primary-light: #2B6B75;
+      --primary-dark: #0F3038;
+      --accent: #FF6B6B;
+      --accent-dark: #E04545;
+      --golden: #F4A261;
+      --golden-light: #FFD19A;
+      --sand: #FFF8F0;
+      --sand-dark: #F0E6D6;
+      --surface: #FFFFFF;
+      --text: #1A2A30;
+      --text-muted: #6B7F88;
+      --success: #2ECC71;
+      --success-bg: #E8F8F0;
+      --warning: #F39C12;
+      --danger: #E74C3C;
+      --tab-height: 64px;
+      --header-height: 56px;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 2px 12px rgba(26,83,92,0.08);
+      --shadow-lg: 0 8px 30px rgba(26,83,92,0.12);
+      --font-display: 'Rubik', sans-serif;
+      --font-body: 'Heebo', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-body);
+      background: var(--sand);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+      padding-bottom: calc(var(--tab-height) + 20px);
+    }
+
+    /* ============================================
+       HEADER
+       ============================================ */
+    .app-header {
+      position: sticky; top: 0; z-index: 100;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white;
+      padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.15);
+      min-height: var(--header-height);
+    }
+    .app-header .title { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+    .app-header .user-badge {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 20px;
+      font-size: 13px; cursor: pointer;
+    }
+    .app-header .user-badge:hover { background: rgba(255,255,255,0.25); }
+    .online-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
+
+    /* ============================================
+       BOTTOM TAB BAR
+       ============================================ */
+    .tab-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: var(--surface);
+      border-top: 1px solid rgba(0,0,0,0.08);
+      display: flex;
+      height: var(--tab-height);
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .tab-item {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; font-size: 10px; color: var(--text-muted);
+      cursor: pointer; transition: all 0.2s; border: none; background: none;
+      font-family: var(--font-body); position: relative;
+    }
+    .tab-item .tab-icon { font-size: 22px; transition: transform 0.2s; }
+    .tab-item.active { color: var(--accent); }
+    .tab-item.active .tab-icon { transform: scale(1.15); }
+    .tab-item .tab-badge {
+      position: absolute; top: 4px; right: calc(50% - 20px);
+      background: var(--accent); color: white; font-size: 9px; font-weight: 700;
+      min-width: 16px; height: 16px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 4px;
+    }
+
+    /* ============================================
+       TAB CONTENT
+       ============================================ */
+    .tab-content { display: none; padding: 16px; max-width: 600px; margin: 0 auto; }
+    .tab-content.active { display: block; }
+
+    /* ============================================
+       SHARED COMPONENTS
+       ============================================ */
+    .section-title {
+      font-family: var(--font-display); font-weight: 700; font-size: 20px;
+      color: var(--primary); margin: 20px 0 12px; display: flex; align-items: center; gap: 8px;
+    }
+    .section-title:first-child { margin-top: 0; }
+
+    .card {
+      background: var(--surface); border-radius: var(--radius); padding: 16px;
+      box-shadow: var(--shadow); margin-bottom: 12px;
+      border: 1px solid rgba(0,0,0,0.04);
+    }
+    .card-title {
+      font-family: var(--font-display); font-weight: 600; font-size: 15px;
+      color: var(--primary); margin-bottom: 8px;
+    }
+
+    .info-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; border-bottom: 1px solid var(--sand-dark);
+      font-size: 14px;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--text-muted); }
+    .info-value { font-weight: 600; }
+
+    .tag {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+    }
+    .tag-green { background: var(--success-bg); color: var(--success); }
+    .tag-orange { background: #FFF3E0; color: var(--warning); }
+    .tag-red { background: #FDECEA; color: var(--danger); }
+
+    /* Progress Bar */
+    .progress-container { margin: 12px 0; }
+    .progress-bar { background: var(--sand-dark); height: 8px; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--golden)); transition: width 0.4s ease; }
+    .progress-text { font-size: 12px; color: var(--text-muted); margin-top: 4px; text-align: left; direction: ltr; }
+
+    /* Filter Chips */
+    .filter-bar {
+      display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 12px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex-shrink: 0; padding: 6px 14px; border-radius: 20px; font-size: 12px;
+      font-weight: 500; border: 1.5px solid var(--sand-dark); background: var(--surface);
+      color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+      font-family: var(--font-body); white-space: nowrap;
+    }
+    .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* ============================================
+       CHECKLIST ITEMS
+       ============================================ */
+    .checklist-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 12px; background: var(--surface); border-radius: var(--radius-sm);
+      margin-bottom: 6px; box-shadow: var(--shadow); transition: all 0.2s;
+      border: 1px solid rgba(0,0,0,0.04);
+    }
+    .checklist-item.done { opacity: 0.5; }
+    .checklist-item.done .item-text { text-decoration: line-through; }
+    .check-btn {
+      width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--sand-dark);
+      background: white; cursor: pointer; flex-shrink: 0; display: flex;
+      align-items: center; justify-content: center; transition: all 0.2s; margin-top: 1px;
+      font-size: 14px;
+    }
+    .check-btn.checked { background: var(--success); border-color: var(--success); color: white; }
+    .item-content { flex: 1; min-width: 0; }
+    .item-text { font-size: 14px; font-weight: 500; }
+    .item-detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .item-qty { font-size: 12px; color: var(--golden); font-weight: 600; }
+    .item-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+
+    .claim-btn {
+      padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+      border: 1.5px solid var(--primary); background: white; color: var(--primary);
+      cursor: pointer; transition: all 0.15s; font-family: var(--font-body);
+    }
+    .claim-btn:hover { background: var(--primary); color: white; }
+    .claim-btn.claimed { background: var(--primary); color: white; border-color: var(--primary); }
+    .claim-btn.claimed-other { background: var(--sand-dark); color: var(--text-muted); border-color: var(--sand-dark); cursor: default; }
+
+    .zila-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 10px;
+      background: var(--success-bg); color: var(--success);
+      font-size: 11px; font-weight: 600;
+    }
+
+    /* ============================================
+       COVER / HERO
+       ============================================ */
+    .hero {
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 40%, var(--primary-light) 100%);
+      color: white; border-radius: var(--radius); padding: 32px 20px;
+      text-align: center; margin-bottom: 16px; position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(circle at 30% 70%, rgba(244,162,97,0.15) 0%, transparent 50%),
+                  radial-gradient(circle at 70% 30%, rgba(255,107,107,0.1) 0%, transparent 50%);
+    }
+    .hero * { position: relative; }
+    .hero-emoji { font-size: 48px; margin-bottom: 8px; }
+    .hero-title { font-family: var(--font-display); font-size: 32px; font-weight: 800; line-height: 1.1; margin-bottom: 6px; }
+    .hero-subtitle { font-size: 16px; opacity: 0.9; font-weight: 500; margin-bottom: 12px; }
+    .hero-pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .hero-pill {
+      background: rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px;
+      font-size: 13px; font-weight: 500; backdrop-filter: blur(4px);
+    }
+
+    /* ============================================
+       TIMELINE
+       ============================================ */
+    .timeline { position: relative; padding-right: 24px; margin: 12px 0; }
+    .timeline::before {
+      content: ''; position: absolute; right: 6px; top: 8px; bottom: 8px;
+      width: 3px; background: var(--sand-dark); border-radius: 2px;
+    }
+    .tl-item { position: relative; margin-bottom: 12px; }
+    .tl-item::before {
+      content: ''; position: absolute; right: -24px; top: 14px;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--primary); border: 3px solid var(--sand);
+      box-shadow: 0 0 0 2px var(--primary);
+    }
+    .tl-item.highlight::before { background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+    .tl-card {
+      background: var(--surface); padding: 12px 14px; border-radius: 0 var(--radius-sm) var(--radius-sm) var(--radius-sm);
+      box-shadow: var(--shadow); border-right: 3px solid var(--primary);
+    }
+    .tl-item.highlight .tl-card { border-right-color: var(--accent); background: #FFF5F5; }
+    .tl-time { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--primary); }
+    .tl-title { font-weight: 600; font-size: 14px; margin-top: 2px; }
+    .tl-desc { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ============================================
+       MENU TOGGLE ITEMS
+       ============================================ */
+    .menu-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px; background: var(--surface); border-radius: var(--radius-sm);
+      margin-bottom: 6px; box-shadow: var(--shadow); transition: all 0.2s;
+      border: 1.5px solid transparent;
+    }
+    .menu-item.selected { border-color: var(--success); background: var(--success-bg); }
+    .menu-toggle {
+      width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--sand-dark);
+      background: white; cursor: pointer; flex-shrink: 0; display: flex;
+      align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s;
+    }
+    .menu-toggle.on { background: var(--success); border-color: var(--success); color: white; }
+    .menu-item-name { font-weight: 600; font-size: 14px; }
+    .menu-item-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .menu-category-header {
+      font-family: var(--font-display); font-weight: 600; font-size: 14px;
+      color: var(--golden); margin: 16px 0 8px; padding-bottom: 4px;
+      border-bottom: 2px solid var(--golden-light);
+    }
+    .menu-category-header:first-child { margin-top: 0; }
+    .menu-summary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white; padding: 14px; border-radius: var(--radius-sm);
+      font-size: 14px; text-align: center; margin: 12px 0;
+    }
+
+    /* ============================================
+       NAME MODAL
+       ============================================ */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999; padding: 20px; backdrop-filter: blur(4px);
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: var(--surface); border-radius: var(--radius); padding: 32px 24px;
+      text-align: center; max-width: 340px; width: 100%; box-shadow: var(--shadow-lg);
+    }
+    .modal h2 { font-family: var(--font-display); color: var(--primary); margin-bottom: 8px; }
+    .modal p { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; }
+    .modal input {
+      width: 100%; padding: 12px 16px; border: 2px solid var(--sand-dark);
+      border-radius: var(--radius-sm); font-size: 16px; font-family: var(--font-body);
+      text-align: center; outline: none; transition: border-color 0.2s;
+    }
+    .modal input:focus { border-color: var(--primary); }
+    .modal button {
+      width: 100%; padding: 14px; border: none; border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: white; font-size: 16px; font-weight: 700; font-family: var(--font-body);
+      cursor: pointer; margin-top: 12px; transition: transform 0.15s;
+    }
+    .modal button:hover { transform: scale(1.02); }
+
+    /* ============================================
+       COLLAPSIBLE
+       ============================================ */
+    .collapsible-header {
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; padding: 10px 0; user-select: none;
+    }
+    .collapsible-header .arrow { transition: transform 0.3s; font-size: 18px; }
+    .collapsible-header.open .arrow { transform: rotate(90deg); }
+    .collapsible-body { display: none; padding-bottom: 8px; }
+    .collapsible-body.open { display: block; }
+
+    /* ============================================
+       VENUE INCLUDED
+       ============================================ */
+    .venue-included {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white; padding: 14px; border-radius: var(--radius-sm); margin-top: 12px;
+    }
+    .venue-included .vi-title { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+    .vi-items { display: flex; flex-wrap: wrap; gap: 6px; }
+    .vi-item {
+      background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 12px;
+      font-size: 12px; font-weight: 500;
+    }
+
+    /* ============================================
+       MISC
+       ============================================ */
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+    .empty-state .emoji { font-size: 48px; margin-bottom: 8px; }
+
+    .share-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 14px; border: none; border-radius: var(--radius-sm);
+      background: #25D366; color: white; font-size: 15px; font-weight: 700;
+      font-family: var(--font-body); cursor: pointer; margin-top: 16px;
+    }
+
+    .note-box {
+      background: #FFF8E1; border: 1px solid #FFE082; border-radius: var(--radius-sm);
+      padding: 10px 14px; font-size: 13px; margin: 8px 0;
+    }
+
+    .decision-card {
+      background: #FFF3E0; border: 1.5px solid var(--golden);
+      border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px;
+    }
+    .decision-card .dc-title { font-weight: 700; font-size: 14px; color: var(--golden); }
+    .decision-card .dc-desc { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+    /* Alcohol cards */
+    .alc-card { text-align: center; }
+    .alc-number { font-family: var(--font-display); font-size: 36px; font-weight: 800; color: var(--accent); }
+    .alc-label { font-size: 13px; color: var(--text-muted); }
+
+    .alc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 12px 0; }
+
+    /* Budget table */
+    .budget-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--sand-dark); }
+    .budget-row:last-child { border: none; font-weight: 700; }
+    .budget-status { font-size: 12px; }
+
+    /* Packing (localStorage) */
+    .packing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .packing-item {
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      background: var(--surface); border-radius: 8px; font-size: 13px;
+      box-shadow: var(--shadow); cursor: pointer; transition: all 0.2s;
+    }
+    .packing-item.packed { opacity: 0.5; text-decoration: line-through; }
+    .packing-check {
+      width: 18px; height: 18px; border: 2px solid var(--sand-dark); border-radius: 5px;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; transition: all 0.2s;
+    }
+    .packing-item.packed .packing-check { background: var(--success); border-color: var(--success); color: white; }
+
+    @media (max-width: 380px) {
+      .packing-grid { grid-template-columns: 1fr; }
+      .alc-grid { grid-template-columns: 1fr; }
+      .hero-title { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAME MODAL -->
+  <div class="modal-overlay" id="nameModal">
+    <div class="modal">
+      <div style="font-size:48px;margin-bottom:8px">👋</div>
+      <h2>!שלום</h2>
+      <p>מה השם שלך? ככה נדע מי לקח על עצמו מה</p>
+      <input type="text" id="nameInput" placeholder="השם שלך..." autofocus>
+      <button onclick="saveName()">!יאללה</button>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="title">🎊 שירה ושלמה</div>
+    <div class="user-badge" onclick="changeName()">
+      <span class="online-dot"></span>
+      <span id="userNameDisplay">...</span>
+    </div>
+  </header>
+
+  <!-- TAB: SCHEDULE -->
+  <div class="tab-content active" id="tab-schedule">
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-emoji">🌅</div>
+      <div class="hero-title">רווקים / רווקות</div>
+      <div class="hero-subtitle">שירה ושלמה מתחתנים!</div>
+      <div class="hero-pills">
+        <span class="hero-pill">📍 חוף אמנון, כנרת</span>
+        <span class="hero-pill">📅 5-6.6.2026</span>
+      </div>
+    </div>
+
+    <!-- Event Details -->
+    <div class="card">
+      <div class="card-title">📋 פרטים כלליים</div>
+      <div class="info-row"><span class="info-label">חתן וכלה</span><span class="info-value">שלמה ושירה</span></div>
+      <div class="info-row"><span class="info-label">מיקום</span><span class="info-value">חוף אמנון, כנרת</span></div>
+      <div class="info-row"><span class="info-label">תאריכים</span><span class="info-value">שישי-שבת 5-6.6.2026</span></div>
+      <div class="info-row"><span class="info-label">משתתפים שישי</span><span class="info-value">40 איש</span></div>
+      <div class="info-row"><span class="info-label">נשארים ללילה</span><span class="info-value">25 איש</span></div>
+    </div>
+
+    <!-- Venue -->
+    <div class="section-title">📍 חוף אמנון - Zila Zula</div>
+    <div class="card">
+      <div class="info-row"><span class="info-label">חבילה</span><span class="info-value">Classic ZULA (מותאמת)</span></div>
+      <div class="info-row"><span class="info-label">מחיר</span><span class="info-value">₪4,050</span></div>
+      <div class="info-row"><span class="info-label">משך</span><span class="info-value">24 שעות</span></div>
+      <div class="info-row"><span class="info-label">טלפון</span><span class="info-value" dir="ltr">053-4373113</span></div>
+      <div class="info-row"><span class="info-label">סטטוס</span><span class="tag tag-green">✅ נסגר</span></div>
+      <div class="venue-included">
+        <div class="vi-title">מה כלול בחבילה:</div>
+        <div class="vi-items">
+          <span class="vi-item">צליית לייקרה 10×10</span>
+          <span class="vi-item">רמקול 500W</span>
+          <span class="vi-item">תאורה</span>
+          <span class="vi-item">מקפיא גדול</span>
+          <span class="vi-item">6 ספסלי שאנטי</span>
+          <span class="vi-item">3 שולחנות קטנים</span>
+          <span class="vi-item">2 שולחנות 1.80 מ'</span>
+          <span class="vi-item">15 כיסאות חוף</span>
+          <span class="vi-item">2 פופים</span>
+          <span class="vi-item">מנגל</span>
+          <span class="vi-item">גנרטור + דלק</span>
+          <span class="vi-item">מחצלות 80%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Friday Schedule -->
+    <div class="section-title">📅 לו״ז שישי 5.6</div>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-card">
+          <div class="tl-time">12:00</div>
+          <div class="tl-title">🔧 הגעת צוות הקמה</div>
+          <div class="tl-desc">סידור שולחנות, מנגל, צידניות</div>
+        </div>
+      </div>
+      <div class="tl-item highlight">
+        <div class="tl-card">
+          <div class="tl-time">14:00</div>
+          <div class="tl-title">🎉 הגעת כולם</div>
+          <div class="tl-desc">נשנושים + שתייה כיפית עד הארוחה</div>
+        </div>
+      </div>
+      <div class="tl-item highlight">
+        <div class="tl-card">
+          <div class="tl-time">18:00</div>
+          <div class="tl-title">🔥 התחלת מנגל</div>
+          <div class="tl-desc">תפריט על האש - ראו לשונית תפריט</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-card">
+          <div class="tl-time">19:30</div>
+          <div class="tl-title">🍽️ ארוחת ערב</div>
+        </div>
+      </div>
+      <div class="tl-item highlight">
+        <div class="tl-card">
+          <div class="tl-time">21:00</div>
+          <div class="tl-title">🍹 אלכוהול, נשנושים ואווירה</div>
+        </div>
+      </div>
+    </div>
+    <div class="note-box">🍦 לאורך כל היום: גלידות, ברד, פירות</div>
+
+    <!-- Saturday Schedule -->
+    <div class="section-title">📅 לו״ז שבת 6.6</div>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-card">
+          <div class="tl-time">08:00</div>
+          <div class="tl-title">☕ קפה ועוגות</div>
+        </div>
+      </div>
+      <div class="tl-item highlight">
+        <div class="tl-card">
+          <div class="tl-time">10:00</div>
+          <div class="tl-title">🍳 ארוחת בוקר בשטח</div>
+          <div class="tl-desc">שקשוקה, לחמים, גבינות, ירקות, ביצה קשה, מלאווחים</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-card">
+          <div class="tl-time">עד 16:00</div>
+          <div class="tl-title">🏖️ ים, משחקים, התפנקות</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-card">
+          <div class="tl-time">16:00</div>
+          <div class="tl-title">🧹 פינוי וניקיון</div>
+          <div class="tl-desc">לוודא שהחוף נקי!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alcohol Summary -->
+    <div class="section-title">🍷 תכנון אלכוהול</div>
+    <div class="card">
+      <div class="alc-grid">
+        <div class="alc-card"><div class="alc-number">15</div><div class="alc-label">בקבוקי יין</div></div>
+        <div class="alc-card"><div class="alc-number">~50</div><div class="alc-label">בירות</div></div>
+        <div class="alc-card"><div class="alc-number">5</div><div class="alc-label">בקבוקי חריפים</div></div>
+      </div>
+      <div class="note-box" style="margin-top:8px">
+        📐 חישוב: 40 איש × 90% שותים × 4.5 משקאות = ~214 משקאות<br>
+        <strong>חריפים:</strong> ערק (2), וודקה (1-2), ג'ין (1)<br>
+        <strong>מיקסרים:</strong> מיץ לימון, טוניק, סודה, מיץ תפוזים, נענע, קרח!<br>
+        ⚠️ שירה ושלמה צריכים לבחור סוגי יין ובירה
+      </div>
+    </div>
+
+    <!-- Budget -->
+    <div class="section-title">💰 תקציב</div>
+    <div class="card">
+      <div class="budget-row"><span>חוף אמנון - Zila Zula</span><span>₪4,050 <span class="tag tag-green">נסגר</span></span></div>
+      <div class="budget-row"><span>25 מזרונים לשינה</span><span>₪500 <span class="tag tag-green">נסגר</span></span></div>
+      <div class="budget-row"><span>אוכל ערב שישי (מנגל ל-40)</span><span>⏳ TBD</span></div>
+      <div class="budget-row"><span>אוכל בוקר שבת (ל-25)</span><span>⏳ TBD</span></div>
+      <div class="budget-row"><span>נשנושים + בין-לבין</span><span>⏳ TBD</span></div>
+      <div class="budget-row"><span>אלכוהול + שתייה</span><span>⏳ TBD</span></div>
+      <div class="budget-row"><span>ציוד חד פעמי + ניקיון</span><span>⏳ TBD</span></div>
+    </div>
+  </div>
+
+  <!-- TAB: MENU -->
+  <div class="tab-content" id="tab-menu">
+    <div class="section-title">🔥 תפריט על האש - שישי ערב</div>
+    <div class="menu-summary" id="bbqSummary">טוען...</div>
+    <div class="note-box">👆 סמנו מנות שנרצה להכין. כל אחד יכול לשנות. התפריט הסופי = מה שמסומן ✅</div>
+    <div id="bbqMenu"></div>
+
+    <div class="section-title" style="margin-top:24px">🍳 ארוחת בוקר - שבת</div>
+    <div class="menu-summary" id="breakfastSummary">טוען...</div>
+    <div id="breakfastMenu"></div>
+
+    <div class="section-title" style="margin-top:24px">👨‍🍳 הכנות מראש בבית</div>
+    <div class="note-box">מי מכין מה? לחצו "אני לוקח" כדי לקחת אחריות</div>
+    <div id="prepList"></div>
+  </div>
+
+  <!-- TAB: TASKS -->
+  <div class="tab-content" id="tab-tasks">
+    <div class="section-title">✅ משימות</div>
+    <div class="progress-container" id="tasksProgress"></div>
+    <div class="filter-bar" id="taskFilters"></div>
+    <div id="tasksList"></div>
+  </div>
+
+  <!-- TAB: SHOPPING -->
+  <div class="tab-content" id="tab-shopping">
+    <div class="section-title">🛒 רשימת קניות</div>
+    <div class="progress-container" id="shoppingProgress"></div>
+    <div class="filter-bar" id="shopFilters"></div>
+    <div id="shoppingList"></div>
+  </div>
+
+  <!-- TAB: EQUIPMENT -->
+  <div class="tab-content" id="tab-equipment">
+    <div class="section-title">⚙️ ציוד משותף</div>
+    <div class="progress-container" id="equipProgress"></div>
+    <div class="note-box">פריטים ✅ מסופקים ע״י זילה זולה. השאר - מי מביא?</div>
+    <div id="equipList"></div>
+
+    <div class="section-title" style="margin-top:24px">👤 ציוד אישי (לשלוח לקבוצה)</div>
+    <div class="note-box">רשימה אישית - נשמר רק אצלך במכשיר</div>
+    <div id="packingList"></div>
+
+    <button class="share-btn" onclick="shareWhatsApp()">📱 שלח רשימת ציוד אישי בוואטסאפ</button>
+
+    <!-- Decisions -->
+    <div class="section-title" style="margin-top:24px">🤔 החלטות פתוחות</div>
+    <div id="decisionsList"></div>
+  </div>
+
+  <!-- BOTTOM TAB BAR -->
+  <nav class="tab-bar">
+    <button class="tab-item active" data-tab="schedule">
+      <span class="tab-icon">📅</span><span>לו״ז</span>
+    </button>
+    <button class="tab-item" data-tab="menu">
+      <span class="tab-icon">🔥</span><span>תפריט</span>
+    </button>
+    <button class="tab-item" data-tab="tasks">
+      <span class="tab-icon">✅</span><span>משימות</span>
+      <span class="tab-badge" id="tasksBadge" style="display:none"></span>
+    </button>
+    <button class="tab-item" data-tab="shopping">
+      <span class="tab-icon">🛒</span><span>קניות</span>
+      <span class="tab-badge" id="shopBadge" style="display:none"></span>
+    </button>
+    <button class="tab-item" data-tab="equipment">
+      <span class="tab-icon">⚙️</span><span>ציוד</span>
+    </button>
+  </nav>
+
+<script>
+/* ============================================
+   DATA DEFINITIONS
+   ============================================ */
+
+const BBQ_MENU = [
+  { cat: 'מנות ראשונות', items: [
+    { id:'bbq-1', name:'שיפודי עראייס', desc:'בשר טלה, בצל וירק בטחינה אדומה' },
+    { id:'bbq-2', name:'קרפצ\'ו בקר על ברוסקטה', desc:'רוקט, שמן זית, בלסמי וקונפי שום' },
+    { id:'bbq-3', name:'סיגרילות בשר חריפות', desc:'עם טחינה לימונית' },
+    { id:'bbq-4', name:'לחמניות באן עם שערות אסאדו', desc:'אסאדו מעושן' },
+    { id:'bbq-5', name:'נקניקיות צ\'וריסוס ביתיות', desc:'' },
+  ]},
+  { cat: 'על המנגל - עיקריות', items: [
+    { id:'bbq-6', name:'אנטריקוט אנגוס', desc:'בצ\'ימיצ\'ורי' },
+    { id:'bbq-7', name:'צלעות טלה', desc:'במשרה של דבש וצ\'ילי' },
+    { id:'bbq-8', name:'קבב טורקי / קבב טלה', desc:'עם עשבי תיבול (עשייה עצמית)' },
+    { id:'bbq-9', name:'שיפודי פרגית', desc:'בפפריקה מעושנת' },
+    { id:'bbq-10', name:'מרגז ביתי', desc:'בתיבול מיוחד' },
+    { id:'bbq-11', name:'דנבר קאט', desc:'מכסה אנטריקוט בקונפי שום' },
+  ]},
+  { cat: 'סלטים (פרווה)', items: [
+    { id:'bbq-12', name:'כרובית צלויה', desc:'טחינה ירוקה וצנובר קלוי' },
+    { id:'bbq-13', name:'חצילים בלאדי', desc:'שרופים על האש, טחינה, סלסה פיקנטית, שקדים' },
+    { id:'bbq-14', name:'סלט שורשים', desc:'עם בוטנים קלויים' },
+    { id:'bbq-15', name:'סלט סביח מפורק', desc:'חצילים, ביצה קשה, טחינה, עמבה ביתית' },
+    { id:'bbq-16', name:'דלעת/בטטה צלויה בגריל', desc:'זיגוג תבלינים וקרמל' },
+    { id:'bbq-17', name:'סלט פטוש', desc:'ירקות ופיתה קלויה עם לימון ושמן זית' },
+    { id:'bbq-18', name:'סלט שוק איטלקי', desc:'עגבניות שרי, זיתי קלמטה, ארטישוק, חומוס' },
+  ]},
+  { cat: 'תוספות חמות', items: [
+    { id:'bbq-19', name:'תפו"א צעירים צלויים', desc:'מלח גס ורוזמרין' },
+    { id:'bbq-20', name:'אורז', desc:'חמוציות ושבבי שקדים' },
+    { id:'bbq-21', name:'תבשיל בורגול', desc:'שעועית שחורה וירקות שורש' },
+    { id:'bbq-22', name:'שעועית ירוקה מוקפצת', desc:'עם שום' },
+    { id:'bbq-23', name:'גזרים צלויים', desc:'שורש סלרי, דבש ומרווה' },
+    { id:'bbq-24', name:'תפו"א מדורה', desc:'מוקפצים על פלנצ\'ה' },
+  ]},
+  { cat: 'לחמים', items: [
+    { id:'bbq-25', name:'פוקצ\'ות חמות', desc:'פסטו / תפנד זיתים / שמן זית ועגבנייה' },
+    { id:'bbq-26', name:'פיתה יוונית', desc:'זעתר ושמן זית על הגריל' },
+    { id:'bbq-27', name:'לחמניות ביס', desc:'שום כפרי ועשבי תיבול' },
+  ]},
+  { cat: 'קינוחים (פרווה)', items: [
+    { id:'bbq-28', name:'מלבי', desc:'חלב קוקוס, ליצ\'י, קדאיף ופיסטוק' },
+    { id:'bbq-29', name:'מאפה סיגר פילו', desc:'בננה ושוקולד בלגי בסירופ' },
+    { id:'bbq-30', name:'סלסילת קדאיף', desc:'קרם ויסקי עם שערות חלבה' },
+    { id:'bbq-31', name:'פבלובה פירות יער', desc:'' },
+    { id:'bbq-32', name:'סופלה שוקולד בלגי', desc:'' },
+    { id:'bbq-33', name:'מגש אבטיח ומלון', desc:'פרוס על קרח כתוש' },
+  ]},
+];
+
+const BREAKFAST_MENU = [
+  { cat: 'מנות חמות', items: [
+    { id:'br-1', name:'שקשוקה עם בולגרית', desc:'רוטב מוכן מהבית, 2 מחבתות' },
+    { id:'br-2', name:'מלאווחים קפואים', desc:'על מחבת עם שמן' },
+    { id:'br-3', name:'ביצים קשות', desc:'מבשלים ב-8:00' },
+    { id:'br-4', name:'פנקייקים', desc:'על כירה במקום' },
+    { id:'br-5', name:'פרנץ\' טוסט מחלה', desc:'חלה טבולה בביצה וקינמון, מטוגנת' },
+  ]},
+  { cat: 'פלטת גבינות', items: [
+    { id:'br-6', name:'גבינה צהובה', desc:'' },
+    { id:'br-7', name:'בולגרית', desc:'' },
+    { id:'br-8', name:'קוטג\'', desc:'' },
+    { id:'br-9', name:'לבנה עם זעתר ושמן זית', desc:'' },
+    { id:'br-10', name:'דבש, זיתים, אגוזים', desc:'נלווים לפלטה' },
+  ]},
+  { cat: 'ממרחים (מוכנים מראש)', items: [
+    { id:'br-11', name:'חומוס', desc:'' },
+    { id:'br-12', name:'טחינה', desc:'' },
+    { id:'br-13', name:'אבוקדו כתוש', desc:'⚠️ לחתוך רק בבוקר' },
+    { id:'br-14', name:'ריבה + חמאה', desc:'' },
+    { id:'br-15', name:'רסק (למלאווח + ביצה)', desc:'' },
+  ]},
+  { cat: 'סלטים', items: [
+    { id:'br-16', name:'סלט ישראלי', desc:'⚠️ לחתוך בבוקר' },
+    { id:'br-17', name:'סלט טאבולה עם רימון', desc:'✅ מוכן מראש בבית' },
+    { id:'br-18', name:'סלט קפרזה', desc:'עגבניות, מוצרלה, בזיליקום - ✅ מוכן מראש' },
+  ]},
+  { cat: 'לחמים ומאפים', items: [
+    { id:'br-19', name:'פיתות', desc:'' },
+    { id:'br-20', name:'לחם פרוס', desc:'' },
+    { id:'br-21', name:'בגטים טריים', desc:'⚠️ לקנות בדרך' },
+    { id:'br-22', name:'חלה', desc:'לפרנץ\' טוסט + שולחן' },
+    { id:'br-23', name:'קרואסונים + בורקסים', desc:'' },
+  ]},
+  { cat: 'שתייה', items: [
+    { id:'br-24', name:'קפה + תה + בר צמחים', desc:'נענע, לואיזה, קמומיל, דבש' },
+    { id:'br-25', name:'מיץ תפוזים', desc:'' },
+    { id:'br-26', name:'מים עם נענע ולימון', desc:'בדיספנסר' },
+    { id:'br-27', name:'גרנולה + יוגורט + פירות', desc:'בכוסות' },
+  ]},
+];
+
+const PREP_ITEMS = [
+  { id:'prep-1', name:'רוטב שקשוקה (סיר גדול)', when:'יום לפני' },
+  { id:'prep-2', name:'סלט טאבולה', when:'יום לפני' },
+  { id:'prep-3', name:'סלט קפרזה', when:'יום לפני' },
+  { id:'prep-4', name:'צ\'ימיצ\'ורי', when:'יום לפני (אם בתפריט)' },
+  { id:'prep-5', name:'גרנולה ביתית', when:'2-3 ימים לפני' },
+  { id:'prep-6', name:'תיבול / מרינדה לבשר', when:'יום לפני' },
+  { id:'prep-7', name:'קבב ביתי', when:'יום לפני (אם בתפריט)' },
+  { id:'prep-8', name:'בלילת פנקייקים', when:'בוקר במקום' },
+];
+
+const TASKS = [
+  // Urgent
+  { id:'t-1', section:'urgent', text:'לגזור תפריט מנגל סופי', detail:'מתוך לשונית התפריט - לסמן מה IN' },
+  { id:'t-2', section:'urgent', text:'לגזור תפריט ארוחת בוקר סופי', detail:'מתוך לשונית התפריט' },
+  { id:'t-3', section:'urgent', text:'מהתפריטים → לגזור מתכונים לכל מנה', detail:'' },
+  { id:'t-4', section:'urgent', text:'מהמתכונים → לחשב כמויות', detail:'40 ערב / 25 בוקר' },
+  { id:'t-5', section:'urgent', text:'מהכמויות → לעדכן רשימת קניות סופית', detail:'' },
+  { id:'t-6', section:'urgent', text:'לשאול בקבוצה: רגישויות תזונתיות?', detail:'טבעונים, צמחונים, אלרגיות' },
+  { id:'t-7', section:'urgent', text:'לשלוח לשירה ושלמה מסמך אלכוהול', detail:'שיבחרו סוגי יין ובירה' },
+  { id:'t-8', section:'urgent', text:'לאשר מנגל נוסף עם עמית ודנה', detail:'' },
+  { id:'t-9', section:'urgent', text:'לאשר כירות גז עם בן וחנטל', detail:'' },
+  { id:'t-10', section:'urgent', text:'לאשר ג\'בל + פנס תאורה מאמא ואבא', detail:'' },
+  // Important
+  { id:'t-11', section:'important', text:'כירת גז + בלון מזילה זולה (₪250)?', detail:'לבוקר' },
+  { id:'t-12', section:'important', text:'רשת כדורעף (₪250)?', detail:'' },
+  { id:'t-13', section:'important', text:'צידנית 100L (₪100)?', detail:'' },
+  { id:'t-14', section:'important', text:'שירותים אקולוגיים (₪1,000)?', detail:'צריך? יש שירותים בחוף?' },
+  { id:'t-15', section:'important', text:'לברר עלות חניה בחוף אמנון', detail:'*55477 - כלול בחבילה?' },
+  { id:'t-16', section:'important', text:'לתאם מקררים אצל הורים באזור', detail:'כמה מקום? מתי מביאים?' },
+  { id:'t-17', section:'important', text:'לתאם אוהלים בקבוצה', detail:'מי מביא אוהל? לכמה אנשים?' },
+  { id:'t-18', section:'important', text:'ברד - להחליט אם שוכרים מכונה', detail:'עלות, חשמל, זמינות' },
+  { id:'t-19', section:'important', text:'עוגות לשבת בבוקר', detail:'קנויות? מאיפה?' },
+  { id:'t-20', section:'important', text:'גלידות - מה קונים?', detail:'גביעים? ליטר?' },
+  { id:'t-21', section:'important', text:'לשלוח רשימת ציוד אישי לקבוצה', detail:'' },
+  { id:'t-22', section:'important', text:'לתאם שיירה / חלוקת רכבים', detail:'' },
+  // Week before
+  { id:'t-23', section:'week-before', text:'קניות נשנושים + חטיפים', detail:'' },
+  { id:'t-24', section:'week-before', text:'קניות חד פעמי + ניקיון', detail:'' },
+  { id:'t-25', section:'week-before', text:'קניות אלכוהול + מיקסרים', detail:'' },
+  { id:'t-26', section:'week-before', text:'קניות שתייה קלה + מים', detail:'' },
+  { id:'t-27', section:'week-before', text:'קניות שימורים', detail:'חומוס, טחינה, רסק, זיתים, כבושים' },
+  { id:'t-28', section:'week-before', text:'קניות תבלינים', detail:'לבדוק מה יש בבית קודם!' },
+  { id:'t-29', section:'week-before', text:'קניות מלאווחים קפואים', detail:'' },
+  { id:'t-30', section:'week-before', text:'חלוקת מי קונה מה + מי מכין מה', detail:'' },
+  { id:'t-31', section:'week-before', text:'לחשב תקציב סופי + סכום לאדם', detail:'' },
+  { id:'t-32', section:'week-before', text:'לאסוף כסף מכולם', detail:'' },
+  // Day before
+  { id:'t-33', section:'day-before', text:'קניות בשר ועוף', detail:'לפי תפריט סופי' },
+  { id:'t-34', section:'day-before', text:'קניות גבינות, חלב, יוגורט, ביצים', detail:'' },
+  { id:'t-35', section:'day-before', text:'קניות ירקות', detail:'' },
+  { id:'t-36', section:'day-before', text:'קניות אבוקדו, לימונים, נענע', detail:'' },
+  { id:'t-37', section:'day-before', text:'קניות עוגות, קרואסונים, בורקסים', detail:'' },
+  { id:'t-38', section:'day-before', text:'קניות חלה', detail:'לפרנץ\' טוסט' },
+  { id:'t-39', section:'day-before', text:'הכנה: רוטב שקשוקה', detail:'סיר גדול' },
+  { id:'t-40', section:'day-before', text:'הכנה: סלט טאבולה + סלט קפרזה', detail:'' },
+  { id:'t-41', section:'day-before', text:'הכנה: גרנולה ביתית', detail:'אפשר 2-3 ימים לפני' },
+  { id:'t-42', section:'day-before', text:'הכנה: תיבול/מרינדה לבשר + קבב', detail:'' },
+  { id:'t-43', section:'day-before', text:'העברה למקרר הורים', detail:'בשר, גבינות, סלטים, רוטב' },
+  // Friday
+  { id:'t-44', section:'friday', text:'קרח! (הרבה מאוד!)', detail:'לקנות בדרך' },
+  { id:'t-45', section:'friday', text:'לחמים טריים, פיתות, בגטים', detail:'לקנות בדרך' },
+  { id:'t-46', section:'friday', text:'פירות (אבטיח, מלון, ענבים)', detail:'' },
+  { id:'t-47', section:'friday', text:'לאסוף אוכל ממקרר ההורים', detail:'' },
+  { id:'t-48', section:'friday', text:'12:00 - לסדר שולחנות + כיסאות', detail:'' },
+  { id:'t-49', section:'friday', text:'12:00 - להקים 2 מנגלים', detail:'' },
+  { id:'t-50', section:'friday', text:'12:00 - לסדר צידניות (שתייה בנפרד מאוכל)', detail:'' },
+  { id:'t-51', section:'friday', text:'12:00 - להכין עמדת נשנושים ושתייה', detail:'מוכן ל-14:00' },
+  { id:'t-52', section:'friday', text:'12:00 - לסדר ספירלות נגד יתושים', detail:'' },
+  { id:'t-53', section:'friday', text:'17:00 - להדליק פחמים', detail:'חצי שעה לפני!' },
+  { id:'t-54', section:'friday', text:'17:00 - להוציא בשר מהצידנית', detail:'' },
+  { id:'t-55', section:'friday', text:'17:30 - לסדר סלטים ותוספות על שולחנות', detail:'' },
+  { id:'t-56', section:'friday', text:'17:30 - לחמים ופיתות מוכנים', detail:'' },
+  { id:'t-57', section:'friday', text:'21:00 - עמדת אלכוהול מסודרת', detail:'' },
+  { id:'t-58', section:'friday', text:'21:00 - נשנושים לערב', detail:'' },
+  // Saturday
+  { id:'t-59', section:'saturday', text:'8:00 - קפה + בר תה צמחים', detail:'' },
+  { id:'t-60', section:'saturday', text:'8:00 - עוגות + קרואסונים + בורקסים', detail:'' },
+  { id:'t-61', section:'saturday', text:'8:00 - גרנולה + יוגורט + פירות בכוסות', detail:'' },
+  { id:'t-62', section:'saturday', text:'8:00 - התחלת בישול ביצים קשות', detail:'' },
+  { id:'t-63', section:'saturday', text:'10:00 - צוות שקשוקה', detail:'חימום רוטב + שבירת ביצים + בולגרית (2 מחבתות)' },
+  { id:'t-64', section:'saturday', text:'10:00 - צוות מלאווחים', detail:'מחבת + שמן על כירה' },
+  { id:'t-65', section:'saturday', text:'10:00 - צוות פנקייקים / פרנץ\' טוסט', detail:'' },
+  { id:'t-66', section:'saturday', text:'10:00 - סידור תחנות', detail:'גבינות, ממרחים, סלטים, לחמים' },
+  { id:'t-67', section:'saturday', text:'16:00 - ניקיון כללי + פינוי זבל', detail:'' },
+  { id:'t-68', section:'saturday', text:'16:00 - החזרת ציוד', detail:'' },
+  { id:'t-69', section:'saturday', text:'16:00 - לוודא שהחוף נקי!', detail:'' },
+];
+
+const TASK_SECTIONS = {
+  'urgent': { label: '🔴 דחוף (עד 25.5)', color: '#E74C3C' },
+  'important': { label: '🟠 חשוב (עד 1.6)', color: '#F39C12' },
+  'week-before': { label: '🟡 שבוע לפני (1-4.6)', color: '#F1C40F' },
+  'day-before': { label: '🟢 יום-יומיים לפני (3-4.6)', color: '#2ECC71' },
+  'friday': { label: '⚪ יום שישי 5.6', color: '#95A5A6' },
+  'saturday': { label: '⚪ יום שבת 6.6', color: '#95A5A6' },
+};
+
+const SHOPPING = [
+  { dept:'meat', icon:'🥩', title:'בשר ועוף', timing:'day-before', items: [
+    { id:'s-1', name:'TBD - סוג בשר 1', qty:'? ק"ג', note:'מנגל' },
+    { id:'s-2', name:'TBD - סוג בשר 2', qty:'? ק"ג', note:'מנגל' },
+    { id:'s-3', name:'TBD - עוף/פרגיות', qty:'? ק"ג', note:'מנגל' },
+  ]},
+  { dept:'veg', icon:'🥕', title:'ירקות', timing:'day-before', items: [
+    { id:'s-4', name:'בצל', qty:'10-12 יח\'', note:'מנגל + סלטים' },
+    { id:'s-5', name:'עגבניות', qty:'3 ק"ג', note:'סלט ישראלי (שישי)' },
+    { id:'s-6', name:'מלפפונים', qty:'2 ק"ג', note:'סלט ישראלי (שישי)' },
+    { id:'s-7', name:'פלפלים צבעוניים', qty:'1.5 ק"ג', note:'מנגל + סלטים' },
+    { id:'s-8', name:'לימונים', qty:'10-12 יח\'', note:'סלטים + שתייה' },
+    { id:'s-9', name:'פטרוזיליה / כוסברה', qty:'3-4 צרורות', note:'סלטים' },
+    { id:'s-10', name:'עגבניות/רסק (לשקשוקה)', qty:'3 ק"ג / 2L רסק', note:'בוקר שבת' },
+    { id:'s-11', name:'פלפלים (לשקשוקה)', qty:'5 יח\'', note:'בוקר שבת' },
+    { id:'s-12', name:'בצל (לשקשוקה)', qty:'4 יח\'', note:'בוקר שבת' },
+    { id:'s-13', name:'עגבניות + מלפפונים (שבת)', qty:'1+1 ק"ג', note:'בוקר שבת' },
+  ]},
+  { dept:'fruit', icon:'🍉', title:'פירות', timing:'on-way', items: [
+    { id:'s-14', name:'אבטיח', qty:'1-2 גדולים', note:'' },
+    { id:'s-15', name:'מלון', qty:'2 יח\'', note:'' },
+    { id:'s-16', name:'ענבים', qty:'1-2 ק"ג', note:'' },
+  ]},
+  { dept:'eggs', icon:'🥚', title:'ביצים', timing:'day-before', items: [
+    { id:'s-17', name:'ביצים', qty:'5-6 תבניות (60-70)', note:'שקשוקה + קשות' },
+  ]},
+  { dept:'dairy', icon:'🧀', title:'מוצרי חלב', timing:'day-before', items: [
+    { id:'s-18', name:'גבינה צהובה', qty:'1.5 ק"ג', note:'בוקר' },
+    { id:'s-19', name:'גבינה בולגרית', qty:'1 ק"ג', note:'בוקר' },
+    { id:'s-20', name:'קוטג\'', qty:'1 ק"ג', note:'בוקר' },
+    { id:'s-21', name:'לבנה', qty:'0.75 ק"ג', note:'בוקר' },
+    { id:'s-22', name:'חמאה', qty:'2 חבילות', note:'בוקר' },
+    { id:'s-23', name:'חלב', qty:'3 ליטר', note:'קפה + כללי' },
+    { id:'s-24', name:'שמנת חמוצה', qty:'500 גרם', note:'בוקר' },
+    { id:'s-25', name:'יוגורט', qty:'1 ק"ג', note:'גרנולה' },
+  ]},
+  { dept:'spreads', icon:'🥫', title:'ממרחים ושימורים', timing:'week-before', items: [
+    { id:'s-26', name:'חומוס', qty:'5 יח\' גדולים', note:'בוקר + נשנושים' },
+    { id:'s-27', name:'טחינה', qty:'3 יח\' (400 גרם)', note:'בוקר + מנגל' },
+    { id:'s-28', name:'אבוקדו טרי', qty:'4-5 יח\'', note:'בוקר (⚠️ טרי!)' },
+    { id:'s-29', name:'רסק עגבניות', qty:'2 ליטר', note:'שקשוקה' },
+    { id:'s-30', name:'ריבות', qty:'2-3 צנצנות', note:'בוקר' },
+    { id:'s-31', name:'דבש', qty:'1 צנצנת', note:'בוקר' },
+    { id:'s-32', name:'זיתים', qty:'3 קופסאות', note:'בוקר' },
+    { id:'s-33', name:'כבושים', qty:'3 צנצנות', note:'בוקר' },
+  ]},
+  { dept:'bread', icon:'🍞', title:'לחמים ומאפים', timing:'on-way', items: [
+    { id:'s-34', name:'פיתות', qty:'40-50 יח\'', note:'מנגל + בוקר' },
+    { id:'s-35', name:'לחם פרוס', qty:'4-5 שקיות', note:'בוקר' },
+    { id:'s-36', name:'בגטים טריים', qty:'3-4 יח\'', note:'בוקר' },
+    { id:'s-37', name:'מלאווחים קפואים', qty:'לפי החלטה', note:'בוקר' },
+    { id:'s-38', name:'עוגות', qty:'3-4', note:'שבת 8:00' },
+    { id:'s-39', name:'קרואסונים + בורקסים', qty:'לפי החלטה', note:'בוקר' },
+    { id:'s-40', name:'חלה', qty:'2', note:'פרנץ\' טוסט + שולחן' },
+  ]},
+  { dept:'spices', icon:'🧂', title:'תבלינים', timing:'week-before', items: [
+    { id:'s-41', name:'מלח גס', qty:'2 אריזות', note:'' },
+    { id:'s-42', name:'פלפל שחור', qty:'1 אריזה גדולה', note:'' },
+    { id:'s-43', name:'שמן זית', qty:'2 בקבוקים גדולים', note:'' },
+    { id:'s-44', name:'פפריקה מתוקה', qty:'1 אריזה', note:'' },
+    { id:'s-45', name:'כמון', qty:'1 אריזה', note:'שקשוקה' },
+    { id:'s-46', name:'פלפל חריף', qty:'1 אריזה', note:'שקשוקה' },
+  ]},
+  { dept:'alcohol', icon:'🍷', title:'אלכוהול', timing:'week-before', items: [
+    { id:'s-47', name:'יין (TBD סוגים)', qty:'15 בקבוקים', note:'שירה+שלמה בוחרים' },
+    { id:'s-48', name:'בירה (TBD סוגים)', qty:'8-9 שישיות', note:'שירה+שלמה בוחרים' },
+    { id:'s-49', name:'ערק', qty:'2 בקבוקים', note:'' },
+    { id:'s-50', name:'וודקה', qty:'1-2 בקבוקים', note:'' },
+    { id:'s-51', name:'ג\'ין', qty:'1 בקבוק', note:'' },
+  ]},
+  { dept:'drinks', icon:'🥤', title:'שתייה קלה + מיקסרים', timing:'week-before', items: [
+    { id:'s-52', name:'מים 1.5 ליטר', qty:'40-50 בקבוקים', note:'' },
+    { id:'s-53', name:'קולה זירו', qty:'12-15 × 1.5L', note:'' },
+    { id:'s-54', name:'סודה', qty:'6-8 × 1.5L', note:'' },
+    { id:'s-55', name:'מיץ לימון (לערק)', qty:'4-5 בקבוקים', note:'' },
+    { id:'s-56', name:'טוניק (לג\'ין)', qty:'4-6 בקבוקים', note:'' },
+    { id:'s-57', name:'מיץ תפוזים', qty:'4-6 ליטר', note:'וודקה + בוקר' },
+  ]},
+  { dept:'hot-drinks', icon:'☕', title:'שתייה חמה', timing:'week-before', items: [
+    { id:'s-58', name:'קפה טורקי / נמס', qty:'2 אריזות', note:'' },
+    { id:'s-59', name:'פקלי קפה', qty:'7-10 פקלים', note:'' },
+    { id:'s-60', name:'תה שחור + צמחים', qty:'3-4 קופסאות', note:'' },
+    { id:'s-61', name:'סוכר', qty:'1 ק"ג', note:'' },
+    { id:'s-62', name:'נענע טרייה', qty:'3-4 צרורות', note:'שתייה + ערק' },
+  ]},
+  { dept:'snacks', icon:'🍿', title:'נשנושים', timing:'week-before', items: [
+    { id:'s-63', name:'במבה', qty:'5-6 שקיות גדולות', note:'קבלת פנים' },
+    { id:'s-64', name:'ציפס', qty:'5-6 שקיות גדולות', note:'קבלת פנים' },
+    { id:'s-65', name:'דוריטוס', qty:'4-5 שקיות', note:'קבלת פנים' },
+    { id:'s-66', name:'חטיפים מלוחים', qty:'2-3 שקיות', note:'' },
+    { id:'s-67', name:'גרעינים', qty:'2-3 שקיות', note:'' },
+    { id:'s-68', name:'שוקולדים', qty:'5-7 לוחות', note:'ערב' },
+    { id:'s-69', name:'עוגיות', qty:'3-4 אריזות', note:'ערב' },
+  ]},
+  { dept:'frozen', icon:'🍦', title:'קפואים', timing:'on-way', items: [
+    { id:'s-70', name:'גלידות', qty:'TBD', note:'' },
+    { id:'s-71', name:'קרח!!!', qty:'כמה שיותר!', note:'🔴 קריטי - בדרך!' },
+  ]},
+  { dept:'disposable', icon:'🍽️', title:'חד פעמי', timing:'week-before', items: [
+    { id:'s-72', name:'צלחות חד פעמיות', qty:'80-100', note:'' },
+    { id:'s-73', name:'כוסות רגילות', qty:'80-100', note:'' },
+    { id:'s-74', name:'כוסות גדולות (אלכוהול)', qty:'60-80', note:'' },
+    { id:'s-75', name:'סכו"ם חד פעמי', qty:'50-60 מכל סוג', note:'' },
+    { id:'s-76', name:'מגשי אלומיניום', qty:'10-12', note:'' },
+    { id:'s-77', name:'מפיות', qty:'4-5 חבילות', note:'' },
+    { id:'s-78', name:'נייר אלומיניום', qty:'2 גלילים', note:'' },
+  ]},
+  { dept:'cleaning', icon:'🧹', title:'ניקיון', timing:'week-before', items: [
+    { id:'s-79', name:'שקיות זבל 120 ליטר', qty:'4-5 חבילות', note:'' },
+    { id:'s-80', name:'נוזל כלים', qty:'1 בקבוק', note:'' },
+    { id:'s-81', name:'סקוטצ\'', qty:'3 יח\'', note:'' },
+    { id:'s-82', name:'סקוטש (דבק)', qty:'2 גלילים', note:'' },
+    { id:'s-83', name:'נייר מטבח', qty:'4-5 גלילים', note:'' },
+    { id:'s-84', name:'נייר טואלט', qty:'3-4 חבילות', note:'' },
+  ]},
+];
+
+const EQUIPMENT = [
+  { cat: 'בישול והגשה', items: [
+    { id:'e-1', name:'מנגל', qty:'1', zila: true },
+    { id:'e-2', name:'מנגל נוסף (חובה!)', qty:'1', note:'עמית ודנה?' },
+    { id:'e-3', name:'פחמים', qty:'5-6 שקיות גדולות' },
+    { id:'e-4', name:'מדליק פחמים / נוזל', qty:'3' },
+    { id:'e-5', name:'מלקחיים למנגל', qty:'2' },
+    { id:'e-6', name:'מרית למנגל', qty:'2' },
+    { id:'e-7', name:'מחבתות לשקשוקה', qty:'2 גדולות' },
+    { id:'e-8', name:'מחבת למלאווחים', qty:'1' },
+    { id:'e-9', name:'סיר לביצים קשות', qty:'1 גדול' },
+    { id:'e-10', name:'כירת גז', qty:'1', note:'בן' },
+    { id:'e-11', name:'כירת גז', qty:'1', note:'חנטל' },
+    { id:'e-12', name:'מפצל חשמל', qty:'1' },
+    { id:'e-13', name:'סכינים חדות', qty:'3-4' },
+    { id:'e-14', name:'קרשי חיתוך', qty:'3-4' },
+    { id:'e-15', name:'כפות הגשה', qty:'4-5' },
+    { id:'e-16', name:'מצקת', qty:'1-2' },
+    { id:'e-17', name:'שולחנות', qty:'3+2', zila: true },
+    { id:'e-18', name:'קערות הגשה גדולות', qty:'5-6' },
+    { id:'e-19', name:'קרש/מגש לגבינות', qty:'1' },
+    { id:'e-20', name:'דיספנסר מים', qty:'1' },
+    { id:'e-21', name:'פותחן בקבוקים', qty:'2' },
+    { id:'e-22', name:'חולץ פקקים (יין)', qty:'1' },
+    { id:'e-23', name:'פותחן קופסאות', qty:'1' },
+    { id:'e-24', name:'מצתים / גפרורים', qty:'3-4' },
+    { id:'e-25', name:'שקיות זיפלוק', qty:'1 אריזה' },
+    { id:'e-26', name:'קערות אלומיניום', qty:'10' },
+    { id:'e-27', name:'נייר אלומיניום', qty:'2 גלילים' },
+    { id:'e-28', name:'ספירלות נגד יתושים', qty:'3-4' },
+    { id:'e-29', name:'ערכת עזרה ראשונה', qty:'1' },
+  ]},
+  { cat: 'קירור', items: [
+    { id:'e-30', name:'מקפיא גדול', qty:'1', zila: true },
+    { id:'e-31', name:'צידניות נוספות', qty:'3-4', note:'שתייה בנפרד מאוכל' },
+    { id:'e-32', name:'קרח', qty:'הרבה מאוד!', note:'בדרך!' },
+  ]},
+  { cat: 'אווירה', items: [
+    { id:'e-33', name:'רמקול 500W', qty:'1', zila: true },
+    { id:'e-34', name:'תאורה', qty:'', zila: true },
+    { id:'e-35', name:'15 כיסאות חוף', qty:'', zila: true },
+    { id:'e-36', name:'6 ספסלי שאנטי', qty:'', zila: true },
+    { id:'e-37', name:'2 פופים', qty:'', zila: true },
+    { id:'e-38', name:'ג\'בל (רמקול נוסף)', qty:'1', note:'אמא ואבא' },
+    { id:'e-39', name:'פנס תאורה', qty:'1', note:'אמא ואבא' },
+    { id:'e-40', name:'משחקי קלפים / שתייה', qty:'2-3' },
+    { id:'e-41', name:'מזרוני ים / מתנפחים', qty:'כמה שיותר' },
+    { id:'e-42', name:'כדורעף / כדורגל', qty:'1-2' },
+    { id:'e-43', name:'מטקות + כדורים', qty:'2-3 סטים' },
+    { id:'e-44', name:'פריזבי', qty:'1-2' },
+  ]},
+];
+
+const PACKING = [
+  'בגד ים','מגבת','כלי רחצה','בגדים חמים ללילה','כפכפים / סנדלים','קרם הגנה',
+  'דוחה יתושים','אוהל','שק שינה / שמיכה','כרית','פנס ראש','משקפי שמש','כובע',
+  'מטען נייד','נעליים סגורות','שקית לבגד ים רטוב','מגבונים לחים','נייר טואלט',
+  'תחתונים חלופיים','דאודורנט','תרופות אישיות','מזומן',
+];
+
+const DECISIONS = [
+  { id:'d-1', title:'שירותים אקולוגיים (₪1,000)', desc:'צריך? יש שירותים בחוף?' },
+  { id:'d-2', title:'כיסאות נוספים?', desc:'יש 15 חוף + 6 שאנטי = 21 מקומות ל-40 איש' },
+  { id:'d-3', title:'מזרונים לשינה', desc:'25 יח\' × ₪20 = ₪500 ✅ לקחת' },
+  { id:'d-4', title:'צידנית קירור 100L (₪100)', desc:'בנוסף לצידניות שלנו?' },
+  { id:'d-5', title:'בלון גז + כירה (₪250)', desc:'לשקשוקה בבוקר?' },
+  { id:'d-6', title:'רשת כדורעף (₪250)', desc:'פעילות כיפית?' },
+  { id:'d-7', title:'מכונת ברד', desc:'כדאי לשכור? עלות? חשמל?' },
+];
+
+/* ============================================
+   FIREBASE SETUP
+   ============================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "FIREBASE_API_KEY",
+  authDomain: "FIREBASE_PROJECT.firebaseapp.com",
+  databaseURL: "https://FIREBASE_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "FIREBASE_PROJECT",
+  storageBucket: "FIREBASE_PROJECT.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "FIREBASE_APP_ID"
+};
+
+let db = null;
+let dbReady = false;
+
+function initFirebase() {
+  try {
+    if (FIREBASE_CONFIG.apiKey === "FIREBASE_API_KEY") {
+      console.warn('Firebase not configured - using localStorage fallback');
+      return;
+    }
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    dbReady = true;
+    listenToChanges();
+  } catch(e) {
+    console.warn('Firebase init failed, using localStorage:', e);
+  }
+}
+
+/* ============================================
+   STATE MANAGEMENT
+   ============================================ */
+let state = {
+  tasks: {},      // { [id]: { done: bool, assignee: string } }
+  shopping: {},   // { [id]: { done: bool, assignee: string } }
+  equipment: {},  // { [id]: { done: bool, assignee: string } }
+  menu: {},       // { [id]: { selected: bool } }
+  prep: {},       // { [id]: { done: bool, assignee: string } }
+  decisions: {},  // { [id]: { selected: bool } }
+};
+
+let userName = localStorage.getItem('userName') || '';
+
+function loadLocalState() {
+  try {
+    const saved = localStorage.getItem('partyState');
+    if (saved) state = { ...state, ...JSON.parse(saved) };
+  } catch(e) {}
+}
+
+function saveState() {
+  localStorage.setItem('partyState', JSON.stringify(state));
+  // Sync to Firebase
+  if (dbReady) {
+    db.ref('/').set(state);
+  }
+}
+
+function listenToChanges() {
+  if (!dbReady) return;
+  db.ref('/').on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      state = { ...state, ...data };
+      localStorage.setItem('partyState', JSON.stringify(state));
+      renderAll();
+    }
+  });
+}
+
+function toggleItem(collection, id) {
+  if (!state[collection]) state[collection] = {};
+  if (!state[collection][id]) state[collection][id] = { done: false, assignee: '' };
+  state[collection][id].done = !state[collection][id].done;
+  saveState();
+  renderAll();
+}
+
+function claimItem(collection, id) {
+  if (!state[collection]) state[collection] = {};
+  if (!state[collection][id]) state[collection][id] = { done: false, assignee: '' };
+  const current = state[collection][id].assignee;
+  if (current === userName) {
+    state[collection][id].assignee = '';
+  } else if (!current) {
+    state[collection][id].assignee = userName;
+  }
+  // If someone else claimed it, don't override
+  saveState();
+  renderAll();
+}
+
+function toggleMenu(id) {
+  if (!state.menu) state.menu = {};
+  if (!state.menu[id]) state.menu[id] = { selected: false };
+  state.menu[id].selected = !state.menu[id].selected;
+  saveState();
+  renderAll();
+}
+
+function toggleDecision(id) {
+  if (!state.decisions) state.decisions = {};
+  if (!state.decisions[id]) state.decisions[id] = { selected: false };
+  state.decisions[id].selected = !state.decisions[id].selected;
+  saveState();
+  renderAll();
+}
+
+/* ============================================
+   NAME MANAGEMENT
+   ============================================ */
+function saveName() {
+  const input = document.getElementById('nameInput');
+  const name = input.value.trim();
+  if (!name) return;
+  userName = name;
+  localStorage.setItem('userName', name);
+  document.getElementById('nameModal').classList.add('hidden');
+  document.getElementById('userNameDisplay').textContent = name;
+}
+
+function changeName() {
+  const name = prompt('שנה שם:', userName);
+  if (name && name.trim()) {
+    userName = name.trim();
+    localStorage.setItem('userName', userName);
+    document.getElementById('userNameDisplay').textContent = userName;
+  }
+}
+
+/* ============================================
+   TAB NAVIGATION
+   ============================================ */
+document.querySelectorAll('.tab-item').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    window.scrollTo(0, 0);
+  });
+});
+
+/* ============================================
+   RENDER FUNCTIONS
+   ============================================ */
+
+function renderProgress(containerId, collection, items) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const total = items.length;
+  const done = items.filter(i => state[collection]?.[i.id]?.done).length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  container.innerHTML = `
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="progress-text">${done}/${total} (${pct}%)</div>
+  `;
+}
+
+function renderChecklistItem(collection, item) {
+  const s = state[collection]?.[item.id] || { done: false, assignee: '' };
+  const doneClass = s.done ? 'done' : '';
+  const checkedClass = s.done ? 'checked' : '';
+  const assignee = s.assignee;
+  let claimHtml = '';
+  if (assignee === userName) {
+    claimHtml = `<button class="claim-btn claimed" onclick="claimItem('${collection}','${item.id}')">🙋 ${assignee} (אני)</button>`;
+  } else if (assignee) {
+    claimHtml = `<button class="claim-btn claimed-other">${assignee}</button>`;
+  } else {
+    claimHtml = `<button class="claim-btn" onclick="claimItem('${collection}','${item.id}')">🙋 אני לוקח/ת</button>`;
+  }
+  return `
+    <div class="checklist-item ${doneClass}">
+      <div class="check-btn ${checkedClass}" onclick="toggleItem('${collection}','${item.id}')">${s.done ? '✓' : ''}</div>
+      <div class="item-content">
+        <div class="item-text">${item.name}</div>
+        ${item.qty ? `<div class="item-qty">${item.qty}</div>` : ''}
+        ${item.detail || item.note ? `<div class="item-detail">${item.detail || item.note || ''}</div>` : ''}
+        <div class="item-actions">${claimHtml}</div>
+      </div>
+    </div>`;
+}
+
+// --- MENU ---
+function renderMenuSection(containerId, menuData, summaryId) {
+  const container = document.getElementById(containerId);
+  let html = '';
+  let total = 0, selected = 0;
+  menuData.forEach(cat => {
+    html += `<div class="menu-category-header">${cat.cat}</div>`;
+    cat.items.forEach(item => {
+      total++;
+      const sel = state.menu?.[item.id]?.selected;
+      if (sel) selected++;
+      html += `
+        <div class="menu-item ${sel ? 'selected' : ''}">
+          <div class="menu-toggle ${sel ? 'on' : ''}" onclick="toggleMenu('${item.id}')">${sel ? '✓' : ''}</div>
+          <div>
+            <div class="menu-item-name">${item.name}</div>
+            ${item.desc ? `<div class="menu-item-desc">${item.desc}</div>` : ''}
+          </div>
+        </div>`;
+    });
+  });
+  container.innerHTML = html;
+  const summaryEl = document.getElementById(summaryId);
+  if (summaryEl) summaryEl.textContent = `${selected} מנות נבחרו מתוך ${total}`;
+}
+
+function renderPrep() {
+  const container = document.getElementById('prepList');
+  let html = '';
+  PREP_ITEMS.forEach(item => {
+    const s = state.prep?.[item.id] || { done: false, assignee: '' };
+    const assignee = s.assignee;
+    let claimHtml;
+    if (assignee === userName) {
+      claimHtml = `<button class="claim-btn claimed" onclick="claimItem('prep','${item.id}')">👨‍🍳 ${assignee}</button>`;
+    } else if (assignee) {
+      claimHtml = `<button class="claim-btn claimed-other">👨‍🍳 ${assignee}</button>`;
+    } else {
+      claimHtml = `<button class="claim-btn" onclick="claimItem('prep','${item.id}')">👨‍🍳 אני מכין/ה</button>`;
+    }
+    html += `
+      <div class="checklist-item ${s.done ? 'done' : ''}">
+        <div class="check-btn ${s.done ? 'checked' : ''}" onclick="toggleItem('prep','${item.id}')">${s.done ? '✓' : ''}</div>
+        <div class="item-content">
+          <div class="item-text">${item.name}</div>
+          <div class="item-detail">⏰ ${item.when}</div>
+          <div class="item-actions">${claimHtml}</div>
+        </div>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
+
+// --- TASKS ---
+let activeTaskFilter = 'all';
+
+function renderTaskFilters() {
+  const container = document.getElementById('taskFilters');
+  let html = `<button class="filter-chip ${activeTaskFilter === 'all' ? 'active' : ''}" onclick="setTaskFilter('all')">הכל</button>`;
+  Object.entries(TASK_SECTIONS).forEach(([key, val]) => {
+    html += `<button class="filter-chip ${activeTaskFilter === key ? 'active' : ''}" onclick="setTaskFilter('${key}')">${val.label}</button>`;
+  });
+  container.innerHTML = html;
+}
+
+function setTaskFilter(filter) {
+  activeTaskFilter = filter;
+  renderTasks();
+}
+
+function renderTasks() {
+  renderTaskFilters();
+  const container = document.getElementById('tasksList');
+  const filtered = activeTaskFilter === 'all' ? TASKS : TASKS.filter(t => t.section === activeTaskFilter);
+  
+  // Group by section
+  const groups = {};
+  filtered.forEach(t => {
+    if (!groups[t.section]) groups[t.section] = [];
+    groups[t.section].push(t);
+  });
+
+  let html = '';
+  Object.entries(groups).forEach(([section, items]) => {
+    const sec = TASK_SECTIONS[section];
+    html += `<div class="section-title" style="font-size:16px;margin-top:16px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${sec.color}"></span>
+      ${sec.label}
+    </div>`;
+    items.forEach(item => {
+      html += renderChecklistItem('tasks', item);
+    });
+  });
+  container.innerHTML = html;
+
+  // Progress
+  renderProgress('tasksProgress', 'tasks', TASKS);
+  
+  // Badge
+  const undone = TASKS.filter(t => !state.tasks?.[t.id]?.done).length;
+  const badge = document.getElementById('tasksBadge');
+  if (undone > 0) { badge.textContent = undone; badge.style.display = 'flex'; }
+  else { badge.style.display = 'none'; }
+}
+
+// --- SHOPPING ---
+let activeShopFilter = 'all';
+
+function renderShopFilters() {
+  const container = document.getElementById('shopFilters');
+  let html = `<button class="filter-chip ${activeShopFilter === 'all' ? 'active' : ''}" onclick="setShopFilter('all')">הכל</button>`;
+  SHOPPING.forEach(dept => {
+    html += `<button class="filter-chip ${activeShopFilter === dept.dept ? 'active' : ''}" onclick="setShopFilter('${dept.dept}')">${dept.icon} ${dept.title}</button>`;
+  });
+  container.innerHTML = html;
+}
+
+function setShopFilter(filter) {
+  activeShopFilter = filter;
+  renderShopping();
+}
+
+function renderShopping() {
+  renderShopFilters();
+  const container = document.getElementById('shoppingList');
+  const filtered = activeShopFilter === 'all' ? SHOPPING : SHOPPING.filter(d => d.dept === activeShopFilter);
+  
+  let html = '';
+  const timingLabels = { 'week-before': '🗓️ שבוע לפני', 'day-before': '📅 יום-יומיים לפני', 'on-way': '🚗 בדרך' };
+  
+  filtered.forEach(dept => {
+    html += `<div class="section-title" style="font-size:16px;margin-top:16px">${dept.icon} ${dept.title}
+      <span class="tag tag-orange" style="font-size:10px;margin-right:8px">${timingLabels[dept.timing] || dept.timing}</span>
+    </div>`;
+    dept.items.forEach(item => {
+      html += renderChecklistItem('shopping', item);
+    });
+  });
+  container.innerHTML = html;
+
+  // Progress
+  const allItems = SHOPPING.flatMap(d => d.items);
+  renderProgress('shoppingProgress', 'shopping', allItems);
+
+  // Badge
+  const undone = allItems.filter(i => !state.shopping?.[i.id]?.done).length;
+  const badge = document.getElementById('shopBadge');
+  if (undone > 0) { badge.textContent = undone; badge.style.display = 'flex'; }
+  else { badge.style.display = 'none'; }
+}
+
+// --- EQUIPMENT ---
+function renderEquipment() {
+  const container = document.getElementById('equipList');
+  let html = '';
+  const allItems = [];
+  
+  EQUIPMENT.forEach(cat => {
+    html += `<div class="section-title" style="font-size:16px;margin-top:16px">${cat.cat}</div>`;
+    cat.items.forEach(item => {
+      allItems.push(item);
+      if (item.zila) {
+        html += `
+          <div class="checklist-item" style="opacity:0.6">
+            <div style="margin-top:2px"><span class="zila-badge">✅ זילה זולה</span></div>
+            <div class="item-content">
+              <div class="item-text" style="text-decoration:line-through">${item.name}</div>
+              ${item.qty ? `<div class="item-qty">${item.qty}</div>` : ''}
+            </div>
+          </div>`;
+      } else {
+        html += renderChecklistItem('equipment', item);
+      }
+    });
+  });
+  container.innerHTML = html;
+
+  const nonZila = allItems.filter(i => !i.zila);
+  renderProgress('equipProgress', 'equipment', nonZila);
+}
+
+// --- PACKING ---
+function renderPacking() {
+  const container = document.getElementById('packingList');
+  const packed = JSON.parse(localStorage.getItem('packed') || '{}');
+  let html = '<div class="packing-grid">';
+  PACKING.forEach((item, i) => {
+    const done = packed[i];
+    html += `
+      <div class="packing-item ${done ? 'packed' : ''}" onclick="togglePacking(${i})">
+        <div class="packing-check">${done ? '✓' : ''}</div>
+        <span>${item}</span>
+      </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function togglePacking(idx) {
+  const packed = JSON.parse(localStorage.getItem('packed') || '{}');
+  packed[idx] = !packed[idx];
+  localStorage.setItem('packed', JSON.stringify(packed));
+  renderPacking();
+}
+
+// --- DECISIONS ---
+function renderDecisions() {
+  const container = document.getElementById('decisionsList');
+  let html = '';
+  DECISIONS.forEach(d => {
+    const sel = state.decisions?.[d.id]?.selected;
+    html += `
+      <div class="decision-card" style="${sel ? 'border-color: var(--success); background: var(--success-bg)' : ''}" onclick="toggleDecision('${d.id}')">
+        <div class="dc-title">${sel ? '✅' : '🤔'} ${d.title}</div>
+        <div class="dc-desc">${d.desc}</div>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
+
+// --- SHARE ---
+function shareWhatsApp() {
+  let text = '📋 *ציוד אישי - רווקים/רווקות שירה ושלמה*\n\n';
+  text += '🏖️ חוף אמנון, כנרת | 5-6.6.2026\n\n';
+  text += '*חובה:*\n';
+  PACKING.slice(0, 7).forEach(i => text += `☐ ${i}\n`);
+  text += '\n*לינה (למי שנשאר):*\n';
+  PACKING.slice(7, 11).forEach(i => text += `☐ ${i}\n`);
+  text += '\n*מומלץ:*\n';
+  PACKING.slice(11).forEach(i => text += `☐ ${i}\n`);
+  text += '\n🔗 כל הפרטים: https://ophirg123.github.io/shira-shlomo-bachelor-2026/';
+  window.open('https://wa.me/?text=' + encodeURIComponent(text));
+}
+
+/* ============================================
+   RENDER ALL
+   ============================================ */
+function renderAll() {
+  renderMenuSection('bbqMenu', BBQ_MENU, 'bbqSummary');
+  renderMenuSection('breakfastMenu', BREAKFAST_MENU, 'breakfastSummary');
+  renderPrep();
+  renderTasks();
+  renderShopping();
+  renderEquipment();
+  renderPacking();
+  renderDecisions();
+}
+
+/* ============================================
+   INIT
+   ============================================ */
+function init() {
+  // Name
+  if (userName) {
+    document.getElementById('nameModal').classList.add('hidden');
+    document.getElementById('userNameDisplay').textContent = userName;
+  } else {
+    document.getElementById('nameInput').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') saveName();
+    });
+  }
+
+  loadLocalState();
+  initFirebase();
+  renderAll();
+}
+
+init();
+</script>
+</body>
+</html>
