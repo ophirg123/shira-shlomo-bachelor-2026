@@ -1206,7 +1206,7 @@ function renderChecklistItem(collection, item) {
     <div class="checklist-item ${doneClass}">
       <div class="check-btn ${checkedClass}" onclick="toggleItem('${collection}','${item.id}')">${s.done ? '✓' : ''}</div>
       <div class="item-content">
-        <div class="item-text">${item.name}</div>
+        <div class="item-text">${item.name || item.text}</div>
         ${item.qty ? `<div class="item-qty">${item.qty}</div>` : ''}
         ${item.detail || item.note ? `<div class="item-detail">${item.detail || item.note || ''}</div>` : ''}
         <div class="item-actions">${claimHtml}</div>
