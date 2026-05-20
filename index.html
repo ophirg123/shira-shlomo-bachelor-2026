@@ -1022,13 +1022,13 @@ const DECISIONS = [
    FIREBASE SETUP
    ============================================ */
 const FIREBASE_CONFIG = {
-  apiKey: "FIREBASE_API_KEY",
-  authDomain: "FIREBASE_PROJECT.firebaseapp.com",
-  databaseURL: "https://FIREBASE_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "FIREBASE_PROJECT",
-  storageBucket: "FIREBASE_PROJECT.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "FIREBASE_APP_ID"
+  apiKey: "AIzaSyC6xY2JXJlGh3Qx1lnGlzAXNR6CJDDYGb4",
+  authDomain: "shira-shlomo-2026.firebaseapp.com",
+  databaseURL: "https://shira-shlomo-2026-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "shira-shlomo-2026",
+  storageBucket: "shira-shlomo-2026.firebasestorage.app",
+  messagingSenderId: "424030373181",
+  appId: "1:424030373181:web:5e76afa1a977940cd4b154"
 };
 
 let db = null;
@@ -1036,10 +1036,7 @@ let dbReady = false;
 
 function initFirebase() {
   try {
-    if (FIREBASE_CONFIG.apiKey === "FIREBASE_API_KEY") {
-      console.warn('Firebase not configured - using localStorage fallback');
-      return;
-    }
+    // Firebase is configured
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.database();
     dbReady = true;
