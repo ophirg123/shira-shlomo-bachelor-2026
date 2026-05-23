@@ -14,7 +14,9 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-const OBS_DIR = '/Users/ogruteke/Documents/Obsidian/Life/Events/רווקים_רווקות_שירה_ושלמה_2026';
+const OBS_DIR = fs.existsSync(path.join(__dirname, '..', 'משימות.md'))
+  ? path.join(__dirname, '..')
+  : '/Users/ogruteke/Documents/Obsidian/Life/Events/רווקים_רווקות_שירה_ושלמה_2026';
 const SYNC_SCRIPT = path.join(__dirname, 'sync.js');
 const FB_URL = 'https://shira-shlomo-2026-default-rtdb.europe-west1.firebasedatabase.app';
 const DEBOUNCE_MS = 3000;

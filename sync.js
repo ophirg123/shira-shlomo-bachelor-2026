@@ -14,7 +14,10 @@ const fs = require('fs');
 const path = require('path');
 
 const FB = 'https://shira-shlomo-2026-default-rtdb.europe-west1.firebasedatabase.app';
-const OBS = '/Users/ogruteke/Documents/Obsidian/Life/Events/רווקים_רווקות_שירה_ושלמה_2026';
+// Auto-detect: if running from inside Obsidian submodule, parent dir is the event folder
+const OBS = fs.existsSync(path.join(__dirname, '..', 'משימות.md'))
+  ? path.join(__dirname, '..')
+  : '/Users/ogruteke/Documents/Obsidian/Life/Events/רווקים_רווקות_שירה_ושלמה_2026';
 
 // ─── Firebase helpers ────────────────────────────────────────────
 function fbGet(p) {
