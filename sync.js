@@ -44,9 +44,13 @@ function writeMd(f,c) { fs.writeFileSync(path.join(OBS,f),c,'utf8'); }
 function parseMenuMd(content) {
   const items = []; let cat = ''; let order = 0;
   for (const line of content.split('\n')) {
-    const cm = line.match(/^##\s+(.+)/);
-    if (cm) { cat = cm[1].replace(/^[^\u05d0-\u05ea]+/,'').trim() || cm[1].trim(); continue; }
-    const im = line.match(/^- \*\*(.+?)\*\*\s*(.*)/);
+    // ### subcategory takes priority, ## is top-level section
+    const h3 = line.match(/^###\s+(.+)/);
+    const h2 = line.match(/^##\s+(.+)/);
+    if (h3) { cat = h3[1].replace(/^[^\u05d0-\u05ea]+/,'').trim() || h3[1].trim(); continue; }
+    if (h2) { cat = h2[1].replace(/^[^\u05d0-\u05ea]+/,'').trim() || h2[1].trim(); continue; }
+    // Menu items: - **name** desc  OR  - ✅/❌ **name** desc
+    const im = line.match(/^- (?:[✅❌]\s*)?\*\*(.+?)\*\*\s*(.*)/);
     if (im && cat) { items.push({ name:im[1].trim(), desc:im[2].replace(/^[-–—]\s*/,'').trim(), cat, order:order++ }); }
   }
   return items;
@@ -172,15 +176,33 @@ async function push(force) {
   console.log('📤 PUSH: Obsidian → Firebase (full sync)\n');
   const fb = await fbGet('/') || {};
 
-  // 1. MENUS
-  for (const [type, file, label] of [['bbq','השראה_תפריט_על_האש.md','🔥 BBQ'],['breakfast','השראה_ארוחת_בוקר.md','🍳 Breakfast']]) {
+  // 1. MENUS — read from תפריט_סופי.md (curated) if exists, else from inspiration files
+  const finalMenuMd = readMd('תפריט_סופי.md');
+  const menuSources = finalMenuMd
+    ? [['bbq', null, '🔥 BBQ'], ['breakfast', null, '🍳 Breakfast']]
+    : [['bbq','השראה_תפריט_על_האש.md','🔥 BBQ'],['breakfast','השראה_ארוחת_בוקר.md','🍳 Breakfast']];
+
+  // Parse final menu by splitting on the two main headers
+  let finalBbqSection = '', finalBreakfastSection = '';
+  if (finalMenuMd) {
+    const bbqStart = finalMenuMd.indexOf('תפריט על האש');
+    const brStart = finalMenuMd.indexOf('ארוחת בוקר');
+    if (bbqStart >= 0 && brStart >= 0) {
+      finalBbqSection = finalMenuMd.substring(bbqStart, brStart);
+      finalBreakfastSection = finalMenuMd.substring(brStart);
+    } else if (bbqStart >= 0) {
+      finalBbqSection = finalMenuMd.substring(bbqStart);
+    }
+  }
+
+  for (const [type, file, label] of menuSources) {
+    const md = finalMenuMd ? (type === 'bbq' ? finalBbqSection : finalBreakfastSection) : readMd(file);
+    if (!md) { console.log(`${label}: no content found`); continue; }
     const existing = fb.menuItems?.[type];
     if (!force && existing && Object.keys(existing).length > 0) {
       console.log(`${label}: Firebase has ${Object.keys(existing).length} items (skipping, use --force)`);
       continue;
     }
-    const md = readMd(file);
-    if (!md) { console.log(`${label}: MD file not found`); continue; }
     const items = parseMenuMd(md);
     const fbItems = {};
     items.forEach((item, i) => {
