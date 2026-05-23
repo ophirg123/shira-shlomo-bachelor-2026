@@ -1,785 +1,556 @@
 #!/usr/bin/env node
 /**
- * sync.js - Bidirectional sync between Firebase and Obsidian MD files
- * 
+ * sync.js - Full bidirectional sync: Obsidian ↔ Firebase ↔ App
+ *
  * Usage:
- *   node sync.js status          # Show diff between Firebase and Obsidian
- *   node sync.js pull            # Firebase → Obsidian (updates MD files)
- *   node sync.js push            # Obsidian → Firebase (seeds/updates Firebase)
- *   node sync.js push --force    # Overwrite Firebase with Obsidian (menus too)
+ *   node sync.js status          # Show diff
+ *   node sync.js pull            # Firebase → Obsidian (ALL files)
+ *   node sync.js push            # Obsidian → Firebase (ALL data)
+ *   node sync.js push --force    # Overwrite Firebase menus even if edited in app
  */
 
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const FIREBASE_URL = 'https://shira-shlomo-2026-default-rtdb.europe-west1.firebasedatabase.app';
-const OBSIDIAN_DIR = '/Users/ogruteke/Documents/Obsidian/Life/Events/רווקים_רווקות_שירה_ושלמה_2026';
+const FB = 'https://shira-shlomo-2026-default-rtdb.europe-west1.firebasedatabase.app';
+const OBS = '/Users/ogruteke/Documents/Obsidian/Life/Events/רווקים_רווקות_שירה_ושלמה_2026';
 
-// ============================================
-// FIREBASE HTTP HELPERS
-// ============================================
-
-function firebaseGet(fbPath) {
-  return new Promise((resolve, reject) => {
-    https.get(`${FIREBASE_URL}${fbPath}.json`, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { resolve(null); } });
-    }).on('error', reject);
+// ─── Firebase helpers ────────────────────────────────────────────
+function fbGet(p) {
+  return new Promise((res, rej) => {
+    https.get(`${FB}${p}.json`, r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>{ try{res(JSON.parse(d))}catch(e){res(null)} }); }).on('error',rej);
   });
 }
-
-function firebasePut(fbPath, data) {
-  return new Promise((resolve, reject) => {
+function fbWrite(method, p, data) {
+  return new Promise((res, rej) => {
     const body = JSON.stringify(data);
-    const url = new URL(`${FIREBASE_URL}${fbPath}.json`);
-    const opts = { hostname: url.hostname, path: url.pathname, method: 'PUT', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } };
-    const req = https.request(opts, (res) => {
-      let d = '';
-      res.on('data', chunk => d += chunk);
-      res.on('end', () => resolve(d));
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
+    const u = new URL(`${FB}${p}.json`);
+    const req = https.request({ hostname:u.hostname, path:u.pathname, method, headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)} }, r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>res(d)); });
+    req.on('error',rej); req.write(body); req.end();
   });
 }
+const fbPut = (p,d) => fbWrite('PUT',p,d);
+const fbPatch = (p,d) => fbWrite('PATCH',p,d);
 
-function firebasePatch(fbPath, data) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify(data);
-    const url = new URL(`${FIREBASE_URL}${fbPath}.json`);
-    const opts = { hostname: url.hostname, path: url.pathname, method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } };
-    const req = https.request(opts, (res) => {
-      let d = '';
-      res.on('data', chunk => d += chunk);
-      res.on('end', () => resolve(d));
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
+function readMd(f) { const p=path.join(OBS,f); return fs.existsSync(p)?fs.readFileSync(p,'utf8'):null; }
+function writeMd(f,c) { fs.writeFileSync(path.join(OBS,f),c,'utf8'); }
 
-function readMd(filename) {
-  const p = path.join(OBSIDIAN_DIR, filename);
-  if (!fs.existsSync(p)) return null;
-  return fs.readFileSync(p, 'utf8');
-}
-
-function writeMd(filename, content) {
-  fs.writeFileSync(path.join(OBSIDIAN_DIR, filename), content, 'utf8');
-}
-
-// ============================================
-// PARSERS: Obsidian MD → structured data
-// ============================================
+// ─── Parsers: MD → data ─────────────────────────────────────────
 
 function parseMenuMd(content) {
-  // Parse menu MD files with ## categories and - **name** desc format
-  const items = [];
-  let currentCat = '';
-  let order = 0;
+  const items = []; let cat = ''; let order = 0;
   for (const line of content.split('\n')) {
-    const catMatch = line.match(/^##\s+(.+)/);
-    if (catMatch) {
-      // Clean category: remove emojis and "על האש" prefix stuff
-      currentCat = catMatch[1].replace(/^[^\u05d0-\u05ea]+/, '').trim();
-      if (!currentCat) currentCat = catMatch[1].trim();
-      continue;
-    }
-    const itemMatch = line.match(/^- \*\*(.+?)\*\*\s*(.*)/);
-    if (itemMatch && currentCat) {
-      const name = itemMatch[1].trim();
-      let desc = itemMatch[2].replace(/^[-–—]\s*/, '').trim();
-      items.push({ name, desc, cat: currentCat, order: order++ });
-    }
+    const cm = line.match(/^##\s+(.+)/);
+    if (cm) { cat = cm[1].replace(/^[^\u05d0-\u05ea]+/,'').trim() || cm[1].trim(); continue; }
+    const im = line.match(/^- \*\*(.+?)\*\*\s*(.*)/);
+    if (im && cat) { items.push({ name:im[1].trim(), desc:im[2].replace(/^[-–—]\s*/,'').trim(), cat, order:order++ }); }
   }
   return items;
 }
 
 function parseTasksMd(content) {
-  // Parse tasks with sections and - [ ] / - [x] format
-  const tasks = [];
-  let currentSection = 'other';
-  const sectionMap = {
-    'דחוף': 'urgent',
-    'חשוב': 'important',
-    'שבוע לפני': 'week-before',
-    'יום-יומיים לפני': 'day-before',
-    'יום האירוע': 'friday',
-    'שישי': 'friday',
-    'שבת': 'saturday',
-    'שאלות פתוחות': 'questions',
-    'תפריט': 'urgent',
-    'החלטות': 'urgent',
-    'לוגיסטיקה': 'important',
-    'תקשורת': 'important',
-    'קניות יבשות': 'week-before',
-    'חלוקת אחריות': 'week-before',
-    'קניות טריות': 'day-before',
-    'הכנות מראש': 'day-before',
-    'העברה למקרר': 'day-before',
-    'בדרך לחוף': 'friday',
-    'צוות הקמה': 'friday',
-    'הגעת כולם': 'friday',
-    'הכנות מנגל': 'friday',
-    'מנגל': 'friday',
-    'אווירה': 'friday',
-    'קפה ועוגות': 'saturday',
-    'ארוחת בוקר': 'saturday',
-    'ים ומשחקים': 'saturday',
-    'פינוי': 'saturday',
-  };
-
+  const tasks = []; let section = 'other';
+  const sMap = {'דחוף':'urgent','חשוב':'important','שבוע לפני':'week-before','יום-יומיים':'day-before',
+    'יום האירוע':'friday','שישי':'friday','שבת':'saturday','שאלות פתוחות':'questions',
+    'תפריט':'urgent','החלטות':'urgent','לוגיסטיקה':'important','תקשורת':'important',
+    'קניות יבשות':'week-before','חלוקת אחריות':'week-before','קניות טריות':'day-before',
+    'הכנות מראש':'day-before','העברה למקרר':'day-before','בדרך':'friday','צוות הקמה':'friday',
+    'הגעת כולם':'friday','הכנות מנגל':'friday','מנגל':'friday','אווירה':'friday',
+    'קפה ועוגות':'saturday','ארוחת בוקר':'saturday','ים ומשחקים':'saturday','פינוי':'saturday'};
   for (const line of content.split('\n')) {
-    // Section headers
-    const h2 = line.match(/^##\s+(.+)/);
-    const h3 = line.match(/^###\s+(.+)/);
-    if (h2 || h3) {
-      const header = (h2 || h3)[1].replace(/[🔴🟠🟡🟢⚪📋]/g, '').trim();
-      for (const [key, val] of Object.entries(sectionMap)) {
-        if (header.includes(key)) { currentSection = val; break; }
-      }
-      continue;
-    }
-    // Task items
-    const taskMatch = line.match(/^- \[([ x])\]\s+(.+)/);
-    if (taskMatch) {
-      const done = taskMatch[1] === 'x';
-      let text = taskMatch[2].replace(/\*\*/g, '').trim();
-      // Extract assignee if present: ← **name**
+    const h = line.match(/^##[#]?\s+(.+)/);
+    if (h) { const hdr = h[1].replace(/[🔴🟠🟡🟢⚪📋]/g,'').trim(); for (const [k,v] of Object.entries(sMap)) { if (hdr.includes(k)) { section=v; break; } } continue; }
+    const tm = line.match(/^- \[([ x])\]\s+(.+)/);
+    if (tm) {
+      let text = tm[2].replace(/\*\*/g,'').trim();
       let assignee = '';
-      const assigneeMatch = text.match(/←\s*\*?\*?(.+?)\*?\*?\s*$/);
-      if (assigneeMatch) {
-        assignee = assigneeMatch[1].trim();
-        text = text.replace(/\s*←.*$/, '').trim();
-      }
-      tasks.push({ text, done, assignee, section: currentSection });
+      const am = text.match(/←\s*\*?\*?(.+?)\*?\*?\s*$/);
+      if (am) { assignee = am[1].trim(); text = text.replace(/\s*←.*$/,'').trim(); }
+      // Remove trailing note lines
+      tasks.push({ text, done: tm[1]==='x', assignee, section });
     }
   }
   return tasks;
 }
 
-function parseShoppingMd(content) {
-  // Parse shopping items from tables: | name | qty | note | ⬜/✅ |
-  const items = [];
-  let currentDept = '';
-  let currentTiming = 'week-before';
-  const timingMap = {
-    'בשר': 'day-before', 'עוף': 'day-before',
-    'ירקות': 'day-before', 'פירות': 'on-way',
-    'ביצים': 'day-before', 'חלב': 'day-before',
-    'לחמים': 'on-way', 'מאפים': 'on-way',
-    'קפואים': 'on-way',
-  };
+function parseShoppingTables(content) {
+  // Parse ALL shopping tables (Part ב - Shopping). Tables have: | פריט | כמות | ל-מה/note | נקנה?/status |
+  const items = []; let dept = ''; let subDept = '';
+  const lines = content.split('\n');
+  let inShoppingSection = false;
+  let tableFormat = ''; // 'shopping' or 'equip'
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.includes('חלק ב') || line.includes('רשימת קניות')) inShoppingSection = true;
+    if (line.includes('חלק א') || line.includes('ציוד')) inShoppingSection = false;
+
+    const h2 = line.match(/^## (.+)/);
+    const h3 = line.match(/^### (.+)/);
+    if (h2) { dept = h2[1].trim(); continue; }
+    if (h3) { subDept = h3[1].trim(); continue; }
+
+    // Detect table header to know format
+    if (line.includes('| פריט') && line.includes('נקנה')) { tableFormat = 'shopping'; continue; }
+    if (line.includes('---')) continue;
+
+    if (tableFormat === 'shopping') {
+      const m = line.match(/^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/);
+      if (m) {
+        const name = m[1].replace(/\*\*/g,'').trim();
+        const qty = m[2].trim();
+        const note = m[3].trim();
+        const status = m[4].trim();
+        if (!name || name.includes('---') || name === 'פריט') continue;
+        items.push({ name, qty, note, done: status==='✅', dept, subDept });
+      }
+    }
+  }
+  return items;
+}
+
+function parseEquipmentTables(content) {
+  // Parse equipment tables (Part א). Tables: | פריט | כמות | אחראי | יש? |
+  const items = []; let cat = '';
+  let inEquipSection = false;
 
   for (const line of content.split('\n')) {
-    const h2 = line.match(/^##\s+(.+)/);
-    const h3 = line.match(/^###\s+(.+)/);
-    if (h2) {
-      currentDept = h2[1].replace(/[🥩🥕🍉🥚🧀🥫🍞🧂🍷🥤☕🍿🍦🍽️🧹]/g, '').trim();
-      for (const [key, val] of Object.entries(timingMap)) {
-        if (currentDept.includes(key)) { currentTiming = val; break; }
-      }
+    if (line.includes('חלק א') || line.includes('ציוד')) inEquipSection = true;
+    if (line.includes('חלק ב') || line.includes('רשימת קניות')) inEquipSection = false;
+    if (line.includes('ציוד אישי')) inEquipSection = false; // personal packing is separate
+
+    const h3 = line.match(/^### (.+)/);
+    if (h3) { cat = h3[1].trim(); continue; }
+    if (!inEquipSection) continue;
+    if (line.includes('---') || !line.startsWith('|')) continue;
+    if (line.includes('פריט') && line.includes('כמות')) continue; // header
+
+    const m = line.match(/^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/);
+    if (m) {
+      let name = m[1].replace(/~~(.+?)~~/g,'$1').replace(/\*\*/g,'').trim();
+      const qty = m[2].replace(/~~(.+?)~~/g,'$1').trim();
+      const assignee = m[3].trim();
+      const status = m[4].trim();
+      if (!name || name === 'פריט') continue;
+      const zila = line.includes('זילה זולה') || (line.includes('~~') && status==='✅');
+      items.push({ name, qty, assignee, done: status==='✅', cat, zila });
+    }
+  }
+  return items;
+}
+
+function parsePackingList(content) {
+  const items = [];
+  let inPacking = false;
+  for (const line of content.split('\n')) {
+    if (line.includes('ציוד אישי')) inPacking = true;
+    if (inPacking && line.match(/^## [^#]/)) { if (!line.includes('ציוד אישי')) inPacking = false; }
+    if (inPacking) {
+      const m = line.match(/^- \[([ x])\]\s+(.+)/);
+      if (m) items.push({ text: m[2].trim(), done: m[1]==='x' });
+    }
+  }
+  return items;
+}
+
+function parseDecisions(content) {
+  const items = [];
+  for (const line of content.split('\n')) {
+    const m = line.match(/^- \[([ x])\]\s+(.+)/);
+    if (m) items.push({ text: m[2].trim(), done: m[1]==='x' });
+  }
+  return items;
+}
+
+// ─── PUSH: Obsidian → Firebase ──────────────────────────────────
+
+async function push(force) {
+  console.log('📤 PUSH: Obsidian → Firebase (full sync)\n');
+  const fb = await fbGet('/') || {};
+
+  // 1. MENUS
+  for (const [type, file, label] of [['bbq','השראה_תפריט_על_האש.md','🔥 BBQ'],['breakfast','השראה_ארוחת_בוקר.md','🍳 Breakfast']]) {
+    const existing = fb.menuItems?.[type];
+    if (!force && existing && Object.keys(existing).length > 0) {
+      console.log(`${label}: Firebase has ${Object.keys(existing).length} items (skipping, use --force)`);
       continue;
     }
-    if (h3) {
-      const sub = h3[1].replace(/[🥩🥕🍉🥚🧀🥫🍞🧂🍷🥤☕🍿🍦🍽️🧹]/g, '').trim();
-      for (const [key, val] of Object.entries(timingMap)) {
-        if (sub.includes(key)) { currentTiming = val; break; }
-      }
-      continue;
-    }
-    // Table rows with items (skip headers and separators)
-    const tableMatch = line.match(/^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/);
-    if (tableMatch && !line.includes('---') && !line.includes('פריט') && !line.includes('כמות')) {
-      const name = tableMatch[1].replace(/~~(.+?)~~/g, '$1').replace(/\*\*/g, '').trim();
-      const qty = tableMatch[2].trim();
-      const note = tableMatch[3].trim();
-      const status = tableMatch[4].trim();
-      if (!name || name === '' || name.startsWith('--')) continue;
-      // Skip items that are crossed out (provided by Zila Zula)
-      if (line.includes('~~') && line.includes('זילה זולה')) continue;
-      const done = status === '✅';
-      items.push({ name, qty, note, done, dept: currentDept, timing: currentTiming });
-    }
-  }
-  return items;
-}
-
-function parseEquipmentMd(content) {
-  // Parse equipment tables
-  const items = [];
-  let currentCat = '';
-
-  for (const line of content.split('\n')) {
-    const h3 = line.match(/^###\s+(.+)/);
-    if (h3) { currentCat = h3[1].trim(); continue; }
-    const tableMatch = line.match(/^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/);
-    if (tableMatch && !line.includes('---') && !line.includes('פריט') && !line.includes('כמות')) {
-      let name = tableMatch[1].replace(/~~(.+?)~~/g, '$1').replace(/\*\*/g, '').trim();
-      const qty = tableMatch[2].replace(/~~(.+?)~~/g, '$1').trim();
-      const assignee = tableMatch[3].trim();
-      const status = tableMatch[4].trim();
-      if (!name || name === '' || name.startsWith('--')) continue;
-      const zila = line.includes('זילה זולה') || line.includes('~~');
-      const done = status === '✅';
-      items.push({ name, qty, assignee, done, cat: currentCat, zila });
-    }
-  }
-  return items;
-}
-
-function parsePrepMd(content) {
-  // Parse prep table from ארוחת_בוקר or generated menu
-  const items = [];
-  const tableRegex = /^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/;
-  let inPrepSection = false;
-
-  for (const line of content.split('\n')) {
-    if (line.includes('סיכום הכנות') || line.includes('הכנות מראש')) inPrepSection = true;
-    if (inPrepSection) {
-      const m = tableRegex.exec(line);
-      if (m && !line.includes('---') && !line.includes('מה') && !line.includes('מתי')) {
-        const name = m[1].trim();
-        const when = m[2].trim();
-        const who = m[3].trim();
-        if (name) items.push({ name, when, assignee: who });
-      }
-    }
-  }
-  return items;
-}
-
-// ============================================
-// GENERATORS: structured data → Obsidian MD
-// ============================================
-
-function generateMenuMd(bbqItems, breakfastItems, notes, prep) {
-  let md = `# 🔥🍳 תפריט סופי - רווקים/רווקות שירה ושלמה\n\n`;
-  md += `> 📅 סונכרן מהאפליקציה: ${new Date().toLocaleString('he-IL')}\n`;
-  md += `> ✅ = נבחר לתפריט | ❌ = לא נבחר\n\n`;
-
-  const renderMenu = (title, items) => {
-    md += `## ${title}\n\n`;
-    const cats = {};
-    items.sort((a, b) => (a.order || 0) - (b.order || 0)).forEach(i => {
-      if (!cats[i.cat]) cats[i.cat] = [];
-      cats[i.cat].push(i);
+    const md = readMd(file);
+    if (!md) { console.log(`${label}: MD file not found`); continue; }
+    const items = parseMenuMd(md);
+    const fbItems = {};
+    items.forEach((item, i) => {
+      const id = `${type}-${i+1}`;
+      fbItems[id] = { id, name:item.name, desc:item.desc, cat:item.cat, order:item.order, selected: existing?.[id]?.selected || false };
     });
-    for (const [cat, catItems] of Object.entries(cats)) {
-      md += `### ${cat}\n\n`;
-      for (const item of catItems) {
-        const check = item.selected ? '✅' : '❌';
-        md += `- ${check} **${item.name}**`;
-        if (item.desc) md += ` - ${item.desc}`;
-        md += '\n';
-        const note = notes?.[item.id];
-        if (note?.text) md += `\t> 📝 _${note.text}_ (${note.author || ''})\n`;
-      }
-      md += '\n';
-    }
-  };
-
-  renderMenu('🔥 תפריט על האש - שישי ערב', bbqItems);
-  renderMenu('🍳 ארוחת בוקר - שבת', breakfastItems);
-
-  if (prep && Object.keys(prep).length > 0) {
-    md += `## 👨‍🍳 הכנות מראש\n\n`;
-    md += `| מה | מוכן? | מי מכין |\n|-----|------|--------|\n`;
-    for (const [id, p] of Object.entries(prep)) {
-      md += `| ${id.replace('prep-', '')} | ${p.done ? '✅' : '⬜'} | ${p.assignee || ''} |\n`;
-    }
+    await fbPut(`/menuItems/${type}`, fbItems);
+    console.log(`${label}: ✅ ${items.length} items pushed`);
   }
 
-  return md;
-}
-
-function generateTasksMd(tasks, fbTasks, notes) {
-  // Rebuild the tasks MD preserving structure but updating checkboxes/assignees/notes
-  const sections = {
-    'urgent': { title: '## 🔴 דחוף - השבוע (עד 25.5)', subsections: {} },
-    'important': { title: '## 🟠 חשוב - שבוע הבא (עד 1.6)', subsections: {} },
-    'week-before': { title: '## 🟡 שבוע לפני (1-4.6) - קניות וחלוקה', subsections: {} },
-    'day-before': { title: '## 🟢 יום-יומיים לפני (3-4.6) - טרי והכנות', subsections: {} },
-    'friday': { title: '## ⚪ יום האירוע - שישי 5.6', subsections: {} },
-    'saturday': { title: '## ⚪ יום שבת 6.6', subsections: {} },
-    'questions': { title: '## שאלות פתוחות', subsections: {} },
-  };
-
-  // Build from original MD (to preserve structure) but update state from Firebase
-  const originalContent = readMd('משימות.md');
-  if (!originalContent) return null;
-
-  let result = '';
-  let taskIndex = 0;
-
-  for (const line of originalContent.split('\n')) {
-    const taskMatch = line.match(/^- \[([ x])\]\s+(.+)/);
-    if (taskMatch) {
-      let text = taskMatch[2].replace(/\*\*/g, '').replace(/\s*←.*$/, '').trim();
-      // Find matching Firebase task
-      const fbKey = findTaskKey(text, fbTasks);
-      const fbState = fbKey ? fbTasks[fbKey] : null;
-      const done = fbState?.done || taskMatch[1] === 'x';
-      const assignee = fbState?.assignee || '';
-      const note = fbKey ? notes?.[fbKey] : null;
-
-      // Reconstruct line
-      let newLine = `- [${done ? 'x' : ' '}] ${taskMatch[2].replace(/\s*←.*$/, '').trim()}`;
-      if (assignee) newLine += ` ← **${assignee}**`;
-      result += newLine + '\n';
-      if (note?.text) result += `\t> 📝 _${note.text}_ (${note.author || ''})\n`;
-    } else {
-      result += line + '\n';
-    }
-  }
-
-  return result.trimEnd() + '\n';
-}
-
-function findTaskKey(text, fbTasks) {
-  // Match task text to Firebase task key
-  // fbTasks is keyed like { tasks: { 't-1': {done, assignee}, ... } }
-  // We need to match by the task text from TASK_MAP
-  const TASK_MAP = buildTaskMap();
-  for (const [key, mapText] of Object.entries(TASK_MAP)) {
-    if (text.includes(mapText) || mapText.includes(text)) {
-      if (fbTasks?.[key]) return key;
-    }
-  }
-  return null;
-}
-
-function buildTaskMap() {
-  // Hardcoded map of task IDs to their text (same as in index.html)
-  return {
-    't-1': 'לגזור תפריט מנגל סופי',
-    't-2': 'לגזור תפריט ארוחת בוקר סופי',
-    't-3': 'לגזור מתכונים לכל מנה',
-    't-4': 'לחשב כמויות',
-    't-5': 'לעדכן רשימת קניות סופית',
-    't-6': 'לשאול בקבוצה: רגישויות תזונתיות',
-    't-7': 'לשלוח לשירה ושלמה',
-    't-8': 'לאשר מנגל נוסף עם עמית ודנה',
-    't-9': 'לאשר כירות גז עם בן וחנטל',
-    't-10': 'לאשר ג\'בל',
-    't-11': 'כירת גז + בלון מזילה זולה',
-    't-12': 'רשת כדורעף',
-    't-13': 'צידנית 100L',
-    't-14': 'שירותים אקולוגיים',
-    't-15': 'לברר עלות חניה',
-    't-16': 'לתאם מקררים',
-    't-17': 'לתאם אוהלים',
-    't-18': 'ברד',
-    't-19': 'עוגות לשבת',
-    't-20': 'גלידות',
-    't-21': 'לשלוח רשימת ציוד אישי',
-    't-22': 'לתאם שיירה',
-    't-23': 'נשנושים',
-    't-24': 'חד פעמי',
-    't-25': 'אלכוהול',
-    't-26': 'שתייה קלה',
-    't-27': 'שימורים',
-    't-28': 'תבלינים',
-    't-29': 'מלאווחים',
-    't-30': 'חלוקת מי קונה',
-    't-31': 'תקציב סופי',
-    't-32': 'לאסוף כסף',
-    't-33': 'בשר ועוף',
-    't-34': 'גבינות, חלב',
-    't-35': 'ירקות',
-    't-36': 'אבוקדו, לימונים',
-    't-37': 'עוגות, קרואסונים',
-    't-38': 'חלה',
-    't-39': 'רוטב שקשוקה',
-    't-40': 'סלט טאבולה',
-    't-41': 'גרנולה ביתית',
-    't-42': 'תיבול',
-    't-43': 'העברה למקרר',
-    't-44': 'קרח',
-    't-45': 'לחמים טריים',
-    't-46': 'פירות',
-    't-47': 'לאסוף אוכל ממקרר',
-    't-48': 'לסדר שולחנות',
-    't-49': 'להקים 2 מנגלים',
-    't-50': 'לסדר צידניות',
-    't-51': 'להכין עמדת נשנושים',
-    't-52': 'ספירלות נגד יתושים',
-    't-53': 'להדליק פחמים',
-    't-54': 'להוציא בשר',
-    't-55': 'לסדר סלטים',
-    't-56': 'לחמים ופיתות',
-    't-57': 'עמדת אלכוהול',
-    't-58': 'נשנושים לערב',
-    't-59': 'קפה',
-    't-60': 'עוגות',
-    't-61': 'גרנולה',
-    't-62': 'ביצים קשות',
-    't-63': 'צוות שקשוקה',
-    't-64': 'צוות מלאווחים',
-    't-65': 'צוות פנקייקים',
-    't-66': 'סידור תחנות',
-    't-67': 'ניקיון כללי',
-    't-68': 'החזרת ציוד',
-    't-69': 'לוודא שהחוף נקי',
-  };
-}
-
-function generateShoppingMd(fbShopping, notes) {
-  // Read original MD, update checkboxes and assignees from Firebase
-  const original = readMd('רשימת_קניות_וציוד.md');
-  if (!original) return null;
-
-  // For shopping, Firebase keys are 's-1', 's-2', etc.
-  // We map them by matching item names from the original data
-  // Since the original MD uses tables, we update ⬜ → ✅ and add assignees
-
-  let result = original;
-
-  // Simple approach: for each Firebase shopping item with state, try to find and update in the MD
-  // This is best-effort matching
-  for (const [key, state] of Object.entries(fbShopping || {})) {
-    if (state.done) {
-      // Replace first ⬜ that hasn't been replaced yet (sequential)
-      // This is imprecise but workable for now
-    }
-  }
-
-  return result;
-}
-
-function generateSyncReport(data) {
-  const notes = data.notes || {};
-  const tasks = data.tasks || {};
-  const shopping = data.shopping || {};
-  const equipment = data.equipment || {};
-  const prep = data.prep || {};
-  const decisions = data.decisions || {};
-  const menuItems = data.menuItems || {};
-
-  let md = `# 📊 סיכום סנכרון - רווקים/רווקות שירה ושלמה\n\n`;
-  md += `> 📅 עודכן: ${new Date().toLocaleString('he-IL')}\n\n`;
-
-  // Tasks with state
-  const tasksWithState = Object.entries(tasks).filter(([, t]) => t.done || t.assignee);
-  if (tasksWithState.length > 0) {
-    md += `## ✅ משימות שהשתנו\n\n`;
-    const TASK_MAP = buildTaskMap();
-    for (const [id, t] of tasksWithState) {
-      md += `- [${t.done ? 'x' : ' '}] ${TASK_MAP[id] || id}`;
-      if (t.assignee) md += ` ← **${t.assignee}**`;
-      md += '\n';
-      if (notes[id]?.text) md += `\t> 📝 _${notes[id].text}_\n`;
-    }
-  }
-
-  // Shopping with state
-  const shopWithState = Object.entries(shopping).filter(([, s]) => s.done || s.assignee);
-  if (shopWithState.length > 0) {
-    md += `\n## 🛒 קניות שהשתנו\n\n`;
-    for (const [id, s] of shopWithState) {
-      md += `- [${s.done ? 'x' : ' '}] ${id}`;
-      if (s.assignee) md += ` ← **${s.assignee}**`;
-      md += '\n';
-    }
-  }
-
-  // Equipment with state
-  const eqWithState = Object.entries(equipment).filter(([, e]) => e.done || e.assignee);
-  if (eqWithState.length > 0) {
-    md += `\n## ⚙️ ציוד שהשתנה\n\n`;
-    for (const [id, e] of eqWithState) {
-      md += `- [${e.done ? 'x' : ' '}] ${id}`;
-      if (e.assignee) md += ` ← **${e.assignee}**`;
-      md += '\n';
-    }
-  }
-
-  // Prep
-  const prepWithState = Object.entries(prep).filter(([, p]) => p.done || p.assignee);
-  if (prepWithState.length > 0) {
-    md += `\n## 👨‍🍳 הכנות מראש\n\n`;
-    for (const [id, p] of prepWithState) {
-      md += `- [${p.done ? 'x' : ' '}] ${id}`;
-      if (p.assignee) md += ` ← **${p.assignee}**`;
-      md += '\n';
-    }
-  }
-
-  // All notes
-  const allNotes = Object.entries(notes);
-  if (allNotes.length > 0) {
-    md += `\n## 📝 כל ההערות\n\n`;
-    for (const [id, n] of allNotes) {
-      md += `- **${id}**: ${n.text} _(${n.author || '?'})_\n`;
-    }
-  }
-
-  // Decisions
-  const decided = Object.entries(decisions).filter(([, d]) => d.selected);
-  if (decided.length > 0) {
-    md += `\n## 🤔 החלטות שאושרו\n\n`;
-    for (const [id] of decided) md += `- ✅ ${id}\n`;
-  }
-
-  return md;
-}
-
-// ============================================
-// PUSH: Obsidian → Firebase
-// ============================================
-
-async function pushToFirebase(force = false) {
-  console.log('📤 Pushing Obsidian → Firebase...\n');
-  const data = await firebaseGet('/');
-
-  // 1. Menus - only push if Firebase is empty OR --force
-  const existingBbq = data?.menuItems?.bbq;
-  const existingBreakfast = data?.menuItems?.breakfast;
-
-  if (force || !existingBbq || Object.keys(existingBbq).length === 0) {
-    console.log('🔥 Pushing BBQ menu from Obsidian...');
-    const bbqMd = readMd('השראה_תפריט_על_האש.md');
-    if (bbqMd) {
-      const items = parseMenuMd(bbqMd);
-      const fbItems = {};
-      items.forEach((item, i) => {
-        const id = `bbq-${i + 1}`;
-        const existing = existingBbq?.[id];
-        fbItems[id] = {
-          id, name: item.name, desc: item.desc, cat: item.cat, order: item.order,
-          selected: existing?.selected || false,
-        };
-      });
-      await firebasePut('/menuItems/bbq', fbItems);
-      console.log(`   ✅ ${items.length} BBQ items pushed`);
-    }
-  } else {
-    console.log('🔥 BBQ menu: Firebase already has data, skipping (use --force to overwrite)');
-    console.log(`   Firebase: ${Object.keys(existingBbq).length} items`);
-  }
-
-  if (force || !existingBreakfast || Object.keys(existingBreakfast).length === 0) {
-    console.log('🍳 Pushing Breakfast menu from Obsidian...');
-    const brMd = readMd('השראה_ארוחת_בוקר.md');
-    if (brMd) {
-      const items = parseMenuMd(brMd);
-      const fbItems = {};
-      items.forEach((item, i) => {
-        const id = `br-${i + 1}`;
-        const existing = existingBreakfast?.[id];
-        fbItems[id] = {
-          id, name: item.name, desc: item.desc, cat: item.cat, order: item.order,
-          selected: existing?.selected || false,
-        };
-      });
-      await firebasePut('/menuItems/breakfast', fbItems);
-      console.log(`   ✅ ${items.length} Breakfast items pushed`);
-    }
-  } else {
-    console.log('🍳 Breakfast menu: Firebase already has data, skipping (use --force to overwrite)');
-    console.log(`   Firebase: ${Object.keys(existingBreakfast).length} items`);
-  }
-
-  // 2. Tasks - merge: Obsidian content + Firebase state
-  console.log('\n📋 Syncing tasks...');
+  // 2. TASKS
+  console.log('');
   const tasksMd = readMd('משימות.md');
   if (tasksMd) {
-    const parsedTasks = parseTasksMd(tasksMd);
-    const existingTasks = data?.tasks || {};
-    const TASK_MAP = buildTaskMap();
-
-    // Update Firebase with any tasks that are checked in Obsidian but not in Firebase
-    const updates = {};
-    for (const task of parsedTasks) {
-      // Find matching task ID
-      let matchedId = null;
-      for (const [id, mapText] of Object.entries(TASK_MAP)) {
-        if (task.text.includes(mapText) || mapText.includes(task.text.substring(0, 15))) {
-          matchedId = id;
-          break;
-        }
-      }
-      if (matchedId) {
-        const existing = existingTasks[matchedId] || {};
-        // Obsidian wins for done if it's checked, Firebase wins if it has assignee
-        if (task.done && !existing.done) {
-          updates[matchedId] = { done: true, assignee: existing.assignee || task.assignee || '' };
-        }
-        if (task.assignee && !existing.assignee) {
-          if (!updates[matchedId]) updates[matchedId] = { done: existing.done || false, assignee: '' };
-          updates[matchedId].assignee = task.assignee;
-        }
-      }
-    }
-    if (Object.keys(updates).length > 0) {
-      await firebasePatch('/tasks', updates);
-      console.log(`   ✅ ${Object.keys(updates).length} task states pushed`);
-    } else {
-      console.log('   ℹ️  No task changes to push');
-    }
+    const parsed = parseTasksMd(tasksMd);
+    // Store task definitions in Firebase
+    const taskDefs = {};
+    const taskStates = fb.tasks || {};
+    parsed.forEach((t, i) => {
+      const id = `t-${i+1}`;
+      taskDefs[id] = { id, text: t.text, section: t.section, order: i };
+      // Merge state: Obsidian checked wins, Firebase assignee preserved
+      const fbState = taskStates[id] || {};
+      taskStates[id] = {
+        done: t.done || fbState.done || false,
+        assignee: fbState.assignee || t.assignee || ''
+      };
+    });
+    await fbPut('/taskDefs', taskDefs);
+    await fbPut('/tasks', taskStates);
+    console.log(`📋 Tasks: ✅ ${parsed.length} definitions + states pushed`);
   }
 
-  // 3. Prep items from breakfast MD
-  console.log('\n👨‍🍳 Syncing prep items...');
-  const breakfastMd = readMd('השראה_ארוחת_בוקר.md');
-  if (breakfastMd) {
-    const prepItems = parsePrepMd(breakfastMd);
-    if (prepItems.length > 0) {
-      const existingPrep = data?.prep || {};
-      const updates = {};
-      prepItems.forEach((item, i) => {
-        const id = `prep-${i + 1}`;
-        if (!existingPrep[id]) {
-          updates[id] = { done: false, assignee: item.assignee || '' };
-        } else if (item.assignee && !existingPrep[id].assignee) {
-          updates[id] = { ...existingPrep[id], assignee: item.assignee };
-        }
-      });
-      if (Object.keys(updates).length > 0) {
-        await firebasePatch('/prep', updates);
-        console.log(`   ✅ ${Object.keys(updates).length} prep items pushed`);
-      } else {
-        console.log('   ℹ️  No prep changes to push');
-      }
-    }
-  }
-
-  console.log('\n✅ Push complete!');
-}
-
-// ============================================
-// PULL: Firebase → Obsidian
-// ============================================
-
-async function pullToObsidian() {
-  console.log('📥 Pulling Firebase → Obsidian...\n');
-  const data = await firebaseGet('/');
-  if (!data) { console.log('❌ No data in Firebase.'); return; }
-
-  const notes = data.notes || {};
-
-  // 1. Generate final menu MD from Firebase
-  const bbqItems = Object.values(data.menuItems?.bbq || {});
-  const breakfastItems = Object.values(data.menuItems?.breakfast || {});
-  if (bbqItems.length > 0 || breakfastItems.length > 0) {
-    const menuMd = generateMenuMd(bbqItems, breakfastItems, notes, data.prep);
-    writeMd('תפריט_סופי.md', menuMd);
-    console.log(`🔥 תפריט_סופי.md - ${bbqItems.length} BBQ + ${breakfastItems.length} breakfast items`);
-  }
-
-  // 2. Update tasks MD with Firebase state
-  const tasksMd = generateTasksMd(null, data.tasks || {}, notes);
-  if (tasksMd) {
-    writeMd('משימות.md', tasksMd);
-    const checkedCount = (tasksMd.match(/\- \[x\]/g) || []).length;
-    console.log(`📋 משימות.md - updated (${checkedCount} checked)`);
-  }
-
-  // 3. Generate sync report
-  const report = generateSyncReport(data);
-  writeMd('סנכרון_מהאפליקציה.md', report);
-  console.log(`📊 סנכרון_מהאפליקציה.md - generated`);
-
-  console.log('\n✅ Pull complete! Check your Obsidian vault.');
-}
-
-// ============================================
-// STATUS
-// ============================================
-
-async function showStatus() {
-  console.log('📡 Comparing Firebase vs Obsidian...\n');
-  const data = await firebaseGet('/');
-
-  // Firebase menu counts
-  const fbBbq = Object.values(data?.menuItems?.bbq || {});
-  const fbBreakfast = Object.values(data?.menuItems?.breakfast || {});
-  const fbBbqSelected = fbBbq.filter(i => i.selected).length;
-  const fbBreakfastSelected = fbBreakfast.filter(i => i.selected).length;
-
-  // Obsidian menu counts
-  const bbqMd = readMd('השראה_תפריט_על_האש.md');
-  const brMd = readMd('השראה_ארוחת_בוקר.md');
-  const obsBbq = bbqMd ? parseMenuMd(bbqMd) : [];
-  const obsBr = brMd ? parseMenuMd(brMd) : [];
-
-  console.log('🔥 BBQ Menu:');
-  console.log(`   Obsidian: ${obsBbq.length} items (original inspiration)`);
-  console.log(`   Firebase: ${fbBbq.length} items (${fbBbqSelected} selected)`);
-  if (fbBbq.length !== obsBbq.length) console.log(`   ⚠️  MISMATCH`);
-
-  console.log('\n🍳 Breakfast Menu:');
-  console.log(`   Obsidian: ${obsBr.length} items`);
-  console.log(`   Firebase: ${fbBreakfast.length} items (${fbBreakfastSelected} selected)`);
-
-  // Tasks
-  const tasksMd = readMd('משימות.md');
-  const obsTasks = tasksMd ? parseTasksMd(tasksMd) : [];
-  const obsChecked = obsTasks.filter(t => t.done).length;
-  const fbTasks = data?.tasks || {};
-  const fbChecked = Object.values(fbTasks).filter(t => t.done).length;
-  const fbAssigned = Object.values(fbTasks).filter(t => t.assignee).length;
-
-  console.log('\n📋 Tasks:');
-  console.log(`   Obsidian: ${obsTasks.length} tasks (${obsChecked} checked)`);
-  console.log(`   Firebase: ${Object.keys(fbTasks).length} with state (${fbChecked} checked, ${fbAssigned} assigned)`);
-
-  // Shopping
+  // 3. SHOPPING
   const shopMd = readMd('רשימת_קניות_וציוד.md');
-  const obsShopCount = shopMd ? (shopMd.match(/⬜/g) || []).length : 0;
-  const fbShop = data?.shopping || {};
-  const fbShopDone = Object.values(fbShop).filter(s => s.done).length;
+  if (shopMd) {
+    const parsed = parseShoppingTables(shopMd);
+    const shopDefs = {};
+    const shopStates = fb.shopping || {};
+    parsed.forEach((item, i) => {
+      const id = `s-${i+1}`;
+      shopDefs[id] = { id, name:item.name, qty:item.qty, note:item.note, dept:item.dept, subDept:item.subDept||'', order:i };
+      const fbState = shopStates[id] || {};
+      shopStates[id] = {
+        done: item.done || fbState.done || false,
+        assignee: fbState.assignee || ''
+      };
+    });
+    await fbPut('/shopDefs', shopDefs);
+    await fbPut('/shopping', shopStates);
+    console.log(`🛒 Shopping: ✅ ${parsed.length} items pushed`);
+  }
 
-  console.log('\n🛒 Shopping:');
-  console.log(`   Obsidian: ${obsShopCount} unchecked items`);
-  console.log(`   Firebase: ${Object.keys(fbShop).length} with state (${fbShopDone} bought)`);
+  // 4. EQUIPMENT
+  if (shopMd) {
+    const parsed = parseEquipmentTables(shopMd);
+    const equipDefs = {};
+    const equipStates = fb.equipment || {};
+    parsed.forEach((item, i) => {
+      const id = `e-${i+1}`;
+      equipDefs[id] = { id, name:item.name, qty:item.qty, cat:item.cat, zila:item.zila||false, order:i };
+      const fbState = equipStates[id] || {};
+      equipStates[id] = {
+        done: item.done || fbState.done || false,
+        assignee: fbState.assignee || item.assignee || ''
+      };
+    });
+    await fbPut('/equipDefs', equipDefs);
+    await fbPut('/equipment', equipStates);
+    console.log(`⚙️ Equipment: ✅ ${parsed.length} items pushed`);
+  }
+
+  // 5. PACKING LIST
+  if (shopMd) {
+    const packing = parsePackingList(shopMd);
+    if (packing.length > 0) {
+      const packDefs = {};
+      packing.forEach((item, i) => { packDefs[`p-${i+1}`] = { id:`p-${i+1}`, text:item.text, order:i }; });
+      await fbPut('/packingDefs', packDefs);
+      console.log(`👤 Packing: ✅ ${packing.length} items pushed`);
+    }
+  }
+
+  // 6. DECISIONS
+  const decMd = readMd('חוף_אמנון_זילה_זולה.md');
+  if (decMd) {
+    const decs = parseDecisions(decMd);
+    const decDefs = {};
+    const decStates = fb.decisions || {};
+    decs.forEach((d, i) => {
+      const id = `d-${i+1}`;
+      decDefs[id] = { id, text:d.text, order:i };
+      if (!decStates[id]) decStates[id] = { selected: d.done };
+    });
+    await fbPut('/decisionDefs', decDefs);
+    await fbPut('/decisions', decStates);
+    console.log(`🤔 Decisions: ✅ ${decs.length} items pushed`);
+  }
+
+  // 7. PREP
+  const brMd = readMd('השראה_ארוחת_בוקר.md');
+  if (brMd) {
+    const lines = brMd.split('\n');
+    let inPrep = false; const preps = [];
+    for (const line of lines) {
+      if (line.includes('סיכום הכנות')) inPrep = true;
+      if (inPrep) {
+        const m = line.match(/^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|/);
+        if (m && !line.includes('---') && !line.includes('מה') && m[1].trim()) {
+          preps.push({ name:m[1].trim(), when:m[2].trim(), who:m[3].trim() });
+        }
+      }
+    }
+    if (preps.length > 0) {
+      const prepDefs = {}; const prepStates = fb.prep || {};
+      preps.forEach((p, i) => {
+        const id = `prep-${i+1}`;
+        prepDefs[id] = { id, name:p.name, when:p.when, order:i };
+        if (!prepStates[id]) prepStates[id] = { done:false, assignee:p.who };
+      });
+      await fbPut('/prepDefs', prepDefs);
+      await fbPatch('/prep', prepStates);
+      console.log(`👨‍🍳 Prep: ✅ ${preps.length} items pushed`);
+    }
+  }
+
+  console.log('\n✅ Full push complete!');
+}
+
+// ─── PULL: Firebase → Obsidian ──────────────────────────────────
+
+async function pull() {
+  console.log('📥 PULL: Firebase → Obsidian (full sync)\n');
+  const fb = await fbGet('/');
+  if (!fb) { console.log('❌ No data in Firebase.'); return; }
+  const notes = fb.notes || {};
+
+  // 1. MENU → תפריט_סופי.md
+  const bbq = Object.values(fb.menuItems?.bbq || {}).sort((a,b)=>(a.order||0)-(b.order||0));
+  const br = Object.values(fb.menuItems?.breakfast || {}).sort((a,b)=>(a.order||0)-(b.order||0));
+  let menuMd = `# 🔥🍳 תפריט סופי - רווקים/רווקות שירה ושלמה\n\n`;
+  menuMd += `> 📅 סונכרן: ${new Date().toLocaleString('he-IL')}\n> ✅ = נבחר | ❌ = לא נבחר\n\n`;
+  for (const [title, items] of [['🔥 תפריט על האש - שישי ערב',bbq],['🍳 ארוחת בוקר - שבת',br]]) {
+    menuMd += `## ${title}\n\n`;
+    const cats = {}; items.forEach(i => { if(!cats[i.cat]) cats[i.cat]=[]; cats[i.cat].push(i); });
+    for (const [cat, ci] of Object.entries(cats)) {
+      menuMd += `### ${cat}\n\n`;
+      for (const i of ci) {
+        menuMd += `- ${i.selected?'✅':'❌'} **${i.name}**${i.desc?' - '+i.desc:''}\n`;
+        if (notes[i.id]?.text) menuMd += `\t> 📝 _${notes[i.id].text}_ (${notes[i.id].author||''})\n`;
+      }
+      menuMd += '\n';
+    }
+  }
+  // Prep
+  const prepDefs = fb.prepDefs || {};
+  const prepStates = fb.prep || {};
+  if (Object.keys(prepDefs).length > 0) {
+    menuMd += `## 👨‍🍳 הכנות מראש\n\n| מה | מתי | מי מכין | מוכן? |\n|-----|------|--------|------|\n`;
+    Object.values(prepDefs).sort((a,b)=>(a.order||0)-(b.order||0)).forEach(d => {
+      const s = prepStates[d.id] || {};
+      menuMd += `| ${d.name} | ${d.when||''} | ${s.assignee||''} | ${s.done?'✅':'⬜'} |\n`;
+    });
+  }
+  writeMd('תפריט_סופי.md', menuMd);
+  console.log(`🔥 תפריט_סופי.md — ${bbq.length} BBQ + ${br.length} breakfast`);
+
+  // 2. TASKS → update משימות.md checkboxes + assignees + notes
+  const taskStates = fb.tasks || {};
+  const taskDefs = fb.taskDefs || {};
+  const origTasks = readMd('משימות.md');
+  if (origTasks) {
+    let updated = origTasks;
+    // For each task with state, find and update in the MD
+    for (const [id, state] of Object.entries(taskStates)) {
+      const def = taskDefs[id];
+      if (!def) continue;
+      const text = def.text;
+      // Escape for regex
+      const esc = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').substring(0, 30);
+      if (!esc) continue;
+      // Match the line with this task text
+      const lineRegex = new RegExp(`^(- \\[)[ x](\\]\\s+(?:\\*\\*)?[^\\n]*${esc}[^\\n]*)`, 'gm');
+      updated = updated.replace(lineRegex, (match, prefix, rest) => {
+        // Remove old assignee
+        let cleanRest = rest.replace(/\s*←\s*\*?\*?[^*\n]+\*?\*?\s*$/, '');
+        const check = state.done ? 'x' : ' ';
+        let newLine = `${prefix}${check}${cleanRest}`;
+        if (state.assignee) newLine += ` ← **${state.assignee}**`;
+        return newLine;
+      });
+      // Add note after the task line if exists
+      const noteText = notes[id]?.text;
+      if (noteText && !updated.includes(noteText)) {
+        const noteLine = `\t> 📝 _${noteText}_ (${notes[id].author||''})`;
+        updated = updated.replace(new RegExp(`(- \\[.\\][^\\n]*${esc}[^\\n]*)`,'m'), `$1\n${noteLine}`);
+      }
+    }
+    writeMd('משימות.md', updated);
+    const checked = (updated.match(/- \[x\]/g)||[]).length;
+    console.log(`📋 משימות.md — ${checked} checked, ${Object.values(taskStates).filter(t=>t.assignee).length} assigned`);
+  }
+
+  // 3. SHOPPING → update רשימת_קניות_וציוד.md
+  const shopStates = fb.shopping || {};
+  const shopDefs = fb.shopDefs || {};
+  const origShop = readMd('רשימת_קניות_וציוד.md');
+  if (origShop && Object.keys(shopStates).length > 0) {
+    let updated = origShop;
+    for (const [id, state] of Object.entries(shopStates)) {
+      const def = shopDefs[id];
+      if (!def || !state.done) continue;
+      const esc = def.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').substring(0,20);
+      if (!esc) continue;
+      // Replace ⬜ with ✅ on lines containing this item
+      updated = updated.replace(new RegExp(`(\\|[^|]*${esc}[^|]*(?:\\|[^|]*){2}\\|\\s*)⬜(\\s*\\|)`,'m'), '$1✅$2');
+      // Add assignee in the assignee column if available
+      if (state.assignee) {
+        const assignRegex = new RegExp(`(\\|[^|]*${esc}[^|]*\\|[^|]*\\|)([^|]*)(\\|[^|]*\\|)`,'m');
+        // Only update if currently empty
+        updated = updated.replace(assignRegex, (match, pre, assignCol, post) => {
+          if (assignCol.trim() === '') return `${pre} ${state.assignee} ${post}`;
+          return match;
+        });
+      }
+    }
+    writeMd('רשימת_קניות_וציוד.md', updated);
+    const bought = Object.values(shopStates).filter(s=>s.done).length;
+    console.log(`🛒 רשימת_קניות_וציוד.md — ${bought} items bought, ${Object.values(shopStates).filter(s=>s.assignee).length} assigned`);
+  } else {
+    console.log(`🛒 רשימת_קניות_וציוד.md — no shopping changes yet`);
+  }
+
+  // 4. EQUIPMENT → update in same file
+  const equipStates = fb.equipment || {};
+  const equipDefs = fb.equipDefs || {};
+  if (Object.keys(equipStates).length > 0) {
+    let updated = readMd('רשימת_קניות_וציוד.md') || origShop;
+    for (const [id, state] of Object.entries(equipStates)) {
+      const def = equipDefs[id];
+      if (!def || def.zila) continue;
+      const esc = def.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').substring(0,20);
+      if (!esc) continue;
+      if (state.done) {
+        updated = updated.replace(new RegExp(`(\\|[^|]*${esc}[^|]*(?:\\|[^|]*){2}\\|\\s*)⬜(\\s*\\|)`,'m'), '$1✅$2');
+      }
+      if (state.assignee) {
+        const assignRegex = new RegExp(`(\\|[^|]*${esc}[^|]*\\|[^|]*\\|)([^|]*)(\\|[^|]*\\|)`,'m');
+        updated = updated.replace(assignRegex, (match, pre, assignCol, post) => {
+          if (assignCol.trim() === '' || assignCol.trim() === '?') return `${pre} ${state.assignee} ${post}`;
+          return match;
+        });
+      }
+    }
+    writeMd('רשימת_קניות_וציוד.md', updated);
+    const equipped = Object.values(equipStates).filter(e=>e.done && !equipDefs[Object.keys(equipStates).find(k=>equipStates[k]===e)]?.zila).length;
+    console.log(`⚙️ רשימת_קניות_וציוד.md — equipment updated`);
+  }
+
+  // 5. DECISIONS → update חוף_אמנון_זילה_זולה.md
+  const decStates = fb.decisions || {};
+  const decDefs = fb.decisionDefs || {};
+  const origDec = readMd('חוף_אמנון_זילה_זולה.md');
+  if (origDec && Object.keys(decStates).length > 0) {
+    let updated = origDec;
+    for (const [id, state] of Object.entries(decStates)) {
+      const def = decDefs[id];
+      if (!def) continue;
+      const esc = def.text.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').substring(0,25);
+      if (state.selected) {
+        updated = updated.replace(new RegExp(`- \\[ \\] ${esc}`,'m'), `- [x] ${def.text}`);
+      }
+    }
+    writeMd('חוף_אמנון_זילה_זולה.md', updated);
+    console.log(`🤔 חוף_אמנון_זילה_זולה.md — decisions updated`);
+  }
+
+  // 6. SYNC REPORT
+  let report = `# 📊 סנכרון מהאפליקציה\n\n> 📅 ${new Date().toLocaleString('he-IL')}\n\n`;
+
+  // Tasks summary
+  const tasksActive = Object.entries(taskStates).filter(([,t])=>t.done||t.assignee);
+  if (tasksActive.length > 0) {
+    report += `## ✅ משימות\n\n`;
+    for (const [id,t] of tasksActive) {
+      const def = taskDefs[id]; if (!def) continue;
+      report += `- [${t.done?'x':' '}] ${def.text}${t.assignee?' ← **'+t.assignee+'**':''}\n`;
+      if (notes[id]?.text) report += `\t> 📝 _${notes[id].text}_\n`;
+    }
+  }
+
+  // Shopping summary
+  const shopActive = Object.entries(shopStates).filter(([,s])=>s.done||s.assignee);
+  if (shopActive.length > 0) {
+    report += `\n## 🛒 קניות\n\n`;
+    for (const [id,s] of shopActive) {
+      const def = shopDefs[id]; if (!def) continue;
+      report += `- [${s.done?'x':' '}] ${def.name} (${def.qty})${s.assignee?' ← **'+s.assignee+'**':''}\n`;
+    }
+  }
+
+  // Equipment
+  const eqActive = Object.entries(equipStates).filter(([,e])=>e.assignee && !equipDefs[Object.keys(equipStates).find(k=>equipStates[k]===e)]?.zila);
+  if (eqActive.length > 0) {
+    report += `\n## ⚙️ ציוד\n\n`;
+    for (const [id,e] of eqActive) {
+      const def = equipDefs[id]; if (!def || def.zila) continue;
+      report += `- [${e.done?'x':' '}] ${def.name}${e.assignee?' ← **'+e.assignee+'**':''}\n`;
+    }
+  }
 
   // Notes
-  const fbNotes = data?.notes || {};
-  console.log(`\n📝 Notes in Firebase: ${Object.keys(fbNotes).length}`);
-  Object.entries(fbNotes).forEach(([id, n]) => {
-    console.log(`   ${id}: "${n.text}" (${n.author})`);
-  });
+  if (Object.keys(notes).length > 0) {
+    report += `\n## 📝 הערות\n\n`;
+    for (const [id,n] of Object.entries(notes)) {
+      report += `- **${id}**: ${n.text} _(${n.author||'?'})_\n`;
+    }
+  }
 
-  console.log('\n---');
-  console.log('Run "node sync.js pull" to update Obsidian from Firebase');
-  console.log('Run "node sync.js push" to push Obsidian changes to Firebase');
-  console.log('Run "node sync.js push --force" to overwrite Firebase menus with Obsidian');
+  writeMd('סנכרון_מהאפליקציה.md', report);
+  console.log(`📊 סנכרון_מהאפליקציה.md — generated`);
+
+  console.log('\n✅ Full pull complete!');
 }
 
-// ============================================
-// CLI
-// ============================================
+// ─── STATUS ─────────────────────────────────────────────────────
 
-const command = process.argv[2] || 'status';
+async function status() {
+  console.log('📡 Status: Obsidian vs Firebase\n');
+  const fb = await fbGet('/') || {};
+
+  const fbBbq = Object.values(fb.menuItems?.bbq||{});
+  const fbBr = Object.values(fb.menuItems?.breakfast||{});
+  const obsBbq = parseMenuMd(readMd('השראה_תפריט_על_האש.md')||'');
+  const obsBr = parseMenuMd(readMd('השראה_ארוחת_בוקר.md')||'');
+
+  console.log(`🔥 BBQ:       Obsidian ${obsBbq.length} items | Firebase ${fbBbq.length} items (${fbBbq.filter(i=>i.selected).length} selected)${fbBbq.length!==obsBbq.length?' ⚠️':' ✅'}`);
+  console.log(`🍳 Breakfast: Obsidian ${obsBr.length} items | Firebase ${fbBr.length} items (${fbBr.filter(i=>i.selected).length} selected)`);
+
+  const obsTasks = parseTasksMd(readMd('משימות.md')||'');
+  const fbTasks = Object.values(fb.tasks||{});
+  const fbTaskDefs = Object.values(fb.taskDefs||{});
+  console.log(`📋 Tasks:     Obsidian ${obsTasks.length} (${obsTasks.filter(t=>t.done).length}✓) | Firebase ${fbTaskDefs.length} defs, ${fbTasks.filter(t=>t.done).length}✓, ${fbTasks.filter(t=>t.assignee).length} assigned`);
+
+  const obsShop = parseShoppingTables(readMd('רשימת_קניות_וציוד.md')||'');
+  const fbShop = Object.values(fb.shopping||{});
+  const fbShopDefs = Object.values(fb.shopDefs||{});
+  console.log(`🛒 Shopping:  Obsidian ${obsShop.length} items | Firebase ${fbShopDefs.length} defs, ${fbShop.filter(s=>s.done).length}✓, ${fbShop.filter(s=>s.assignee).length} assigned`);
+
+  const obsEquip = parseEquipmentTables(readMd('רשימת_קניות_וציוד.md')||'');
+  const fbEquip = Object.values(fb.equipment||{});
+  const fbEquipDefs = Object.values(fb.equipDefs||{});
+  console.log(`⚙️ Equipment: Obsidian ${obsEquip.length} items | Firebase ${fbEquipDefs.length} defs, ${fbEquip.filter(e=>e.assignee).length} assigned`);
+
+  console.log(`📝 Notes:     ${Object.keys(fb.notes||{}).length}`);
+  console.log(`👨‍🍳 Prep:      ${Object.keys(fb.prepDefs||{}).length} defs, ${Object.values(fb.prep||{}).filter(p=>p.assignee).length} assigned`);
+  console.log(`🤔 Decisions: ${Object.values(fb.decisions||{}).filter(d=>d.selected).length}/${Object.keys(fb.decisions||{}).length} approved`);
+}
+
+// ─── CLI ─────────────────────────────────────────────────────────
+const cmd = process.argv[2] || 'status';
 const force = process.argv.includes('--force');
 
-switch (command) {
-  case 'status':
-    showStatus().catch(console.error);
-    break;
-  case 'pull':
-    pullToObsidian().catch(console.error);
-    break;
-  case 'push':
-    pushToFirebase(force).catch(console.error);
-    break;
-  default:
-    console.log(`
-📦 sync.js - Bidirectional sync: Obsidian ↔ Firebase ↔ App
+switch(cmd) {
+  case 'pull': pull().catch(console.error); break;
+  case 'push': push(force).catch(console.error); break;
+  case 'status': status().catch(console.error); break;
+  default: console.log(`
+📦 sync.js — Full bidirectional sync: Obsidian ↔ Firebase ↔ App
 
-Usage:
   node sync.js status          Show differences
-  node sync.js pull            Firebase → Obsidian (update MD files)
-  node sync.js push            Obsidian → Firebase (push changes)
-  node sync.js push --force    Overwrite Firebase menus with Obsidian
-
-Workflow:
-  1. GF edits in app  → run "pull"  → Obsidian updates
-  2. You edit in Obsidian → run "push" → app updates
+  node sync.js pull            Firebase → Obsidian (update ALL md files)
+  node sync.js push            Obsidian → Firebase (push ALL data)
+  node sync.js push --force    Also overwrite Firebase menus
 `);
 }
